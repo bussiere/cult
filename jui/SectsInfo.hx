@@ -1,17 +1,15 @@
 // sects information ui
 
+import js.Browser;
+import js.html.DivElement;
+import js.html.SpanElement;
 import sects.Sect;
 
-class SectsInfo
+class SectsInfo extends Window
 {
-  var ui: UI;
-  var game: Game;
-
-  public var window: Dynamic; // window element
-  public var list: Dynamic; // list element
-  public var text: Dynamic; // text element
-  public var menu: Dynamic; // hovering menu element
-  public var isVisible: Bool;
+  var list: DivElement; // list element
+  var text: DivElement; // text element
+  var menu: DivElement; // hovering menu element
 
   var selectedNode: Node; // selected node
   var selectedNodeID: Int; // selected node id (to store when window closed)
@@ -19,76 +17,45 @@ class SectsInfo
 
   public function new(uivar: UI, gvar: Game)
     {
-      ui = uivar;
-      game = gvar;
-      isVisible = false;
+      super(uivar, gvar, 'sects', 800, 536, 20);
+
       selectedNode = null;
       selectedNodeID = 0;
-  
-      // window
-      window = Tools.window(
-        {
-          id: "windowSects",
-          center: true,
-          winW: UI.winWidth,
-          winH: UI.winHeight,
-          fontSize: 16,
-          bold: true,
-          w: 800,
-          h: 520,
-          z: 20
-        });
-      window.style.display = 'none';
-      window.style.padding = '5 5 5 5';
-	  window.style.border = '4px double #ffffff';
 
       // list
-      list = js.Lib.document.createElement("div");
-      list.style.overflow = 'auto';
-      list.style.position = 'absolute';
-      list.style.left = 10;
-      list.style.top = 10;
-      list.style.width = 790;
-      list.style.height = 480;
-      list.style.background = '#111';
-      window.appendChild(list);
+      var sectsBG = Browser.document.createDivElement();
+      sectsBG.id = 'sectsBGIMG';
+      window.appendChild(sectsBG);
+      var sectsFG = Browser.document.createDivElement();
+      sectsFG.id = 'sectsFG';
+      sectsFG.className = 'uiTextFG';
+      sectsBG.appendChild(sectsFG);
+      list = Browser.document.createDivElement();
+      list.id = 'sectsList';
+//      list.className = 'uiText';
+      sectsFG.appendChild(list);
 
       // info text
-      text = js.Lib.document.createElement("div");
-      text.style.overflow = 'auto';
-      text.style.position = 'absolute';
-      text.style.textAlign = 'center';
-      text.style.left = 120;
-      text.style.top = 498;
-      text.style.width = 130;
-      text.style.height = 20;
-      text.style.background = '#111';
+      text = js.Browser.document.createDivElement();
+      text.className = 'cultInfoLabel';
       window.appendChild(text);
 
       // hovering menu
-      menu = Tools.window(
-        {
-          id: "sectsMenuWindow",
-          center: true,
-          winW: UI.winWidth,
-          winH: UI.winHeight,
-          fontSize: 16,
-          w: 200,
-          h: 280,
-          z: 3000
-        });
-      menu.style.padding = 5;
+      menu = Tools.window({
+        id: "sectsMenuWindow",
+        fontSize: 16,
+        w: 200,
+        h: 280,
+        z: 3000
+      });
+      menu.style.padding = '5px';
       menu.style.border = '1px solid';
-      menu.style.opacity = 0.9;
-
-      // close button
-      var close = Tools.closeButton(window, 365, 493, 'infoClose');
-	  close.onclick = onClose;
+      menu.style.opacity = '0.9';
     }
 
 
 // key press
-  public function onKey(e: Dynamic)
+  public override function onKey(e: Dynamic)
     {
       // close current window
       if (e.keyCode == 27 || // Esc
@@ -99,15 +66,6 @@ class SectsInfo
           onClose(null);
           return;
         }
-    }
-
-
-// hide info
-  public function onClose(event)
-    {
-      window.style.display = 'none';
-      isVisible = false;
-      list.innerHTML = '';
     }
 
 
@@ -150,7 +108,7 @@ class SectsInfo
 
       if (task == null)
         return;
-  
+
       var target = null;
       if (task.type == 'cult')
         target = game.cults[targetID];
@@ -161,28 +119,45 @@ class SectsInfo
 
 
 // show info
-  public function show()
+  override function onShow()
     {
-      var s = '<table style="overflow:auto" cellspacing=3 cellpadding=3 width=100%>' +
-        '<tr><th>Name<th>Leader<th>LVL<th>Size<th>Current Task<th>AI';
+      var s = '<table class=uiListSects cellspacing=3 cellpadding=3>' +
+        '<tr><th>Info<th>Size<th>Current Task<th>AI';
 
       for (sect in game.player.sects)
         {
-          s += '<tr style="background:black"><td>' + sect.name + 
-//            (Game.isDebug ? ' ' + sect.taskImportant : '') +
-            '<td>' + sect.leader.name +
-            '<td style="text-align:center">' + (sect.level + 1) + 
-            '<td style="text-align:center">' + 
-            sect.size + '/' + sect.getMaxSize() + ' (+' + sect.getGrowth() + ')' +
-            '<td style="te1xt-align:center">';
+          s += '<tr class=uiListSectsRow><td>' + sect.name +
+            ' <span class=shadow style="color:white">L' + (sect.level + 1) + '</span>, (' +
+            sect.leader.name + ')';
+          if (game.flags.devoted) // DEVOTED: counter and button
+            {
+              var isDisabled =
+                (game.player.power[sect.powerID] <= 0 ||
+                 (sect.level == 2 && sect.getMaxSize() == sect.size));
+              s += ', <span id=sect.powerCount' + sect.id + '>' +
+                sect.powerStorage + '</span>' +
+                "&nbsp;<span class='uiButton" +
+                  (isDisabled ? 'Disabled' : '') +
+                  " spanButton' id='sect.powerSpend" + sect.id + "' " +
+                  "style='color: var(--power-color-" + sect.powerID + ");'>" +
+                  Game.powerShortNames[sect.powerID] + "</span>";
+            }
+          s += '<td style="text-align:center">' +
+            sect.size + '/' + sect.getMaxSize() +
+            ' <span id=sect.growth' + sect.id + ' class=uiListSectsPlus>(+' + sect.getGrowth() + ')</span>' +
+            '<td>';
 
-          s += "<select class=secttasks onchange='Game.instance.ui.sects.onSelect(this.value)'>";
+          s += "<select class=selectOption onchange='Game.instance.ui.sects.onSelect(this.value)'>";
 //          "<option value=" + sect.leader.id + ".none>-- None --";
-          
+
           for (t in game.sectTasks)
             {
               // no investigator
               if (t.type == 'investigator' && !game.player.hasInvestigator)
+                continue;
+
+              // skip expansion tasks if they're not available
+              if (t.type == 'artifact' && !game.flags.artifacts)
                 continue;
 
               // sect is too low-level
@@ -194,38 +169,37 @@ class SectsInfo
                 {
                   for (c in game.cults)
                     {
-                      if (c == game.player || !c.isDiscovered[game.player.id] || c.isDead)
+                      if (c == game.player ||
+                          !c.isDiscovered[game.player.id] ||
+                          c.isDead)
                         continue;
 
                       // check start conditions
                       var ok = t.check(game.player, sect, c);
                       if (!ok)
                         continue;
-              
-                      s += '<option class=secttasks value=' + sect.leader.id + '.' + t.id + '-' + c.id + 
+
+                      s += '<option class=selectOption value=' + sect.leader.id + '.' + t.id + '-' + c.id +
                         (sect.task != null && sect.task.id == t.id &&
                           sect.taskTarget == c ? ' selected' : '') +
-                        '>' + t.name + ': ' + c.name;
+                        '>' + t.getName(sect) + ': ' + c.name;
                     }
                 }
 
-              // investigator type task
-              else if (t.type == 'investigator')
+              // untargeted task
+              else
                 {
                   var ok = t.check(game.player, sect, null);
                   if (!ok)
                     continue;
 
-                  s += '<option class=secttasks value=' + sect.leader.id + '.' + t.id + '-0 ' +
+                  s += '<option class=selectOption value=' + sect.leader.id + '.' + t.id + '-0 ' +
                     (sect.task != null && sect.task.id == t.id ? ' selected' : '') +
-                    '>' + t.name;
+                    '>' + t.getName(sect);
                 }
-              else s += '<option class=secttasks value=' + sect.leader.id + '.' + t.id + '-0' +
-                (sect.task != null && sect.task.id == t.id ? ' selected' : '') +
-                '>' + t.name;
-              
+
               // points
-              if (sect.task != null && sect.task.id == t.id && 
+              if (sect.task != null && sect.task.id == t.id &&
                   !sect.task.isInfinite)
                 s += ' (' + sect.taskPoints + '/' + sect.task.points + ')';
             }
@@ -234,20 +208,53 @@ class SectsInfo
 
           s += '<td style="text-align:center">' +
             '<input type="checkbox" name="sectai' + sect.leader.id + '" ' +
-            (sect.isAdvisor ? 'checked' : '') + 
+            (sect.isAdvisor ? 'checked' : '') +
             ' onchange="Game.instance.ui.sects.onAdvisor(' + sect.leader.id +
             ', this.checked)">';
         }
-        
+
       s += '</table>';
       list.innerHTML = s;
       text.innerHTML = 'Sects: ' + game.player.sects.length + '/' +
         game.player.getMaxSects();
 
+      // DEVOTED: update tooltips
+      if (game.flags.devoted)
+        for (sect in game.player.sects)
+          {
+            ui.initTooltip('sect.powerSpend' + sect.id);
+            ui.updateTip('sect.powerSpend' + sect.id,
+              'Spend ' + sect.getPowerPerTurn() + ' ' +
+              UI.powerName(sect.powerID) +
+              ' per turn to make the sect devoted.' +
+              '<br>When the sect is devoted: ' +
+              '<li>It grows ' + Const.devotedGrowthBonus + '% faster.' +
+              '<li>It gains ' + Const.devotedTaskPointsBonus + '% more task points.' +
+              '<li>It adds to the base cult awareness each turn.');
+            var btn: SpanElement = cast UI.e('sect.powerSpend' + sect.id);
+            btn.onclick = onClickSpendPower;
+          }
+
       window.style.display = 'inline';
+      bg.style.display = 'inline';
       isVisible = true;
     }
 
+// DEVOTED: spend power to buff sect
+  function onClickSpendPower(event)
+    {
+      var target = Tools.getTarget(event);
+      var sectID = Std.parseInt(target.id.substr(15));
+      var sect = game.player.getSect(sectID);
+      sect.spendPower();
+      var counter = UI.e('sect.powerCount' + sectID);
+      counter.innerHTML = '' + sect.powerStorage;
+      if (game.player.power[sect.powerID] <= 0)
+        target.className = 'uiButtonDisabled spanButton';
+      counter.innerHTML = '' + sect.powerStorage;
+      var growth = UI.e('sect.growth' + sectID);
+      growth.innerHTML = '(+' + sect.getGrowth() + ')';
+    }
 
 // checkbox click callback
   public function onAdvisor(leaderID: Int, checked: Bool)
@@ -266,15 +273,15 @@ class SectsInfo
 // get element shortcut
   public static inline function e(s)
     {
-	  return js.Lib.document.getElementById(s);
-	}
+      return Browser.document.getElementById(s);
+    }
 
 
 // create element shortcut
   public static inline function create(parent: Dynamic, s: String)
     {
-      var el = js.Lib.document.createElement(s);
+      var el = Browser.document.createElement(s);
       parent.appendChild(el);
-      return el; 
+      return el;
     }
 }

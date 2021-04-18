@@ -2,6 +2,7 @@
 
 import Static;
 import sects.Sect;
+import _SaveGame;
 
 class Cult
 {
@@ -10,7 +11,7 @@ class Cult
   public var id: Int;
   public var infoID: Int;
   public var name: String;
-  public var fullName(getFullName, null): String;
+  public var fullName(get, null): String;
   public var info: CultInfo;
   public var difficulty: DifficultyInfo; // difficulty info link
 
@@ -25,35 +26,41 @@ class Cult
   // ritual stuff
   public var isRitual: Bool; // cult is performing ritual?
   public var ritual: RitualInfo; // which ritual is in progress
-  public var ritualPoints: Int; // amount of ritual points left 
+  public var ritualPoints: Int; // amount of ritual points left
 
-  public var awareness(default, setAwareness): Int; // public awareness
+  public var awarenessMod: Int; // awareness static mod from expansions
+  public var awarenessBase: Int; // base awareness
+  public var awareness(get, null): Int; // public awareness (combined)
 
   // power reserves
   public var power: Array<Int>; // intimidation, persuasion, bribe, virgins
-  public var virgins(getVirgins, setVirgins): Int;
- 
+  public var virgins(get, set): Int;
+
   public var wars: Array<Bool>; // wars
   public var powerMod: Array<Int>; // power that will be generated next turn (cache)
-  public var origin: Node; // origin 
+  public var origin: Node; // origin
 
   // followers number cache
-  public var neophytes(getNeophytes, null): Int;
-  public var adepts(getAdepts, null): Int;
-  public var priests(getPriests, null): Int;
+  public var neophytes(get, null): Int;
+  public var adepts(get, null): Int;
+  public var priests(get, null): Int;
 
   public var nodes: List<Node>; // cache of owned nodes
   public var adeptsUsed: Int; // how many adepts were used this turn
   public var sects: List<Sect>; // list of controlled sects
-  public var options: Options; // player options
 
   public var hasInvestigator: Bool; // does this cult has investigator on its back?
   public var investigator: Investigator; // investigator
   public var investigatorTimeout: Int; // timeout before next investigator may appear
 
   public var logMessages: String; // log string
+  public var logMessagesTurn: String; // log string for this turn
   public var logPanelMessages: List<LogPanelMessage>; // log panel messages list
   public var highlightedNodes: List<Node>; // highlighted nodes list
+
+  // expansion stuff
+  public var artifacts: artifacts.CultArtifacts;
+  public var fluffShown: Map<String, Bool>;
 
 
   public function new(gvar: Game, uivar: UI, id: Int, infoID: Int)
@@ -65,115 +72,39 @@ class Cult
       this.info = Static.cults[infoID];
       this.name = this.info.name;
       this.isAI = false;
+      this.isDead = false;
+      this.isParalyzed = false;
       this.highlightedNodes = new List<Node>();
-      this.options = new Options(this);
+      this.artifacts = new artifacts.CultArtifacts(game, ui, this);
+      this.fluffShown = new Map();
 
-      isDiscovered = [];
-      isInfoKnown = [];
-      paralyzedTurns = 0;
-
+      this.isDiscovered = [];
+      this.isInfoKnown = [];
+      this.paralyzedTurns = 0;
       for (i in 0...game.difficulty.numCults)
-        isInfoKnown[i] = game.difficulty.isInfoKnown;
+        this.isInfoKnown[i] = game.difficulty.isInfoKnown;
       for (i in 0...game.difficulty.numCults)
-        isDiscovered[i] = game.difficulty.isDiscovered;
-
+        this.isDiscovered[i] = game.difficulty.isDiscovered;
       // self discovered and info known
       this.isDiscovered[id] = true;
       this.isInfoKnown[id] = true;
 
       this.power = [0, 0, 0, 0];
       this.powerMod = [0, 0, 0, 0];
-
       wars = [];
       for (i in 0...game.difficulty.numCults)
         wars.push(false);
-
       this.adeptsUsed = 0;
+      this.awarenessBase = 0;
+      this.awarenessMod = 0;
       this.awareness = 0;
       this.nodes = new List<Node>();
       this.sects = new List<Sect>();
       this.investigatorTimeout = 0;
       this.difficulty = game.difficulty;
       this.logMessages = '';
-      this.logPanelMessages = new List<LogPanelMessage>();
-    }
-
-
-// load node info from json-object
-  public function load(c:Dynamic)
-    {
-      difficulty = Static.difficulty[c.dif];
-      isDead = (c.ide ? true : false);
-      isParalyzed = (c.ip ? true : false);
-      trace('TODO load isDiscovered isInfoKnown');
-//      isDiscovered = (c.idi ? true : false);
-//      isInfoKnown = (c.iin ? true : false);
-      power = c.p;
-      adeptsUsed = c.au;
-      investigatorTimeout = c.it;
-      if (c.inv != null)
-        {
-          hasInvestigator = true;
-          investigator = new Investigator(this, ui, game);
-          investigator.load(c.inv);
-        }
-      if (c.r != null)
-        {
-          isRitual = true;
-          ritualPoints = c.rp;
-          for (r in Static.rituals)
-            if (r.id == c.r)
-              ritual = r;
-        }
-      awareness = c.aw;
-      if (c.w != null)
-        {
-          var wlist:Array<Int> = c.w;
-          wars = [];
-          for (w in wlist)
-            wars.push(w == 1 ? true : false);
-        }
-    }
-
-
-// dump cult info for saving
-  public function save(): Dynamic
-    {
-      trace('TODO save isDiscovered isInfoKnown');
-      var obj:Dynamic = {
-        id: id,
-        iid: infoID,
-        dif: difficulty.level,
-        ia: (isAI ? 1 : 0),
-        ide: (isDead ? 1 : 0),
-        ip: (isParalyzed ? 1 : 0),
-//        idi: (isDiscovered ? 1 : 0),
-//        iin: (isInfoKnown ? 1 : 0),
-        p: power,
-        or: (origin != null ? origin.id : 0),
-        au: adeptsUsed,
-        it: investigatorTimeout
-        };
-      if (hasInvestigator)
-        obj.inv = investigator.save();
-      if (isRitual)
-        {
-          obj.r = ritual.id; 
-          obj.rp = ritualPoints;
-        }
-      obj.aw = awareness;
-      var ww = [];
-      var savewars = false;
-      for (w in wars)
-        {
-          ww.push(w ? 1 : 0);
-          if (w)
-            savewars = true;
-        }
-      if (savewars)
-        obj.w = wars;
-
-      return obj;
+      this.logMessagesTurn = '';
+      this.logPanelMessages = new List();
     }
 
 
@@ -183,6 +114,22 @@ class Cult
       return Std.int(nodes.length / 4);
     }
 
+// get generated ritual points
+  public function getRitualPoints(): Int
+    {
+      if (game.flags.artifacts)
+        return artifacts.getRitualPoints();
+      return priests;
+    }
+
+// get max ritual points
+  public function getMaxRitualPoints(): Int
+    {
+      var pts = ritual.points;
+      if (game.flags.longRituals)
+        return Std.int(Const.longRitualsRitualPoints * pts);
+      return pts;
+    }
 
 // create a new sect
   public function createSect(node: Node)
@@ -194,26 +141,141 @@ class Cult
       sects.add(sect);
       node.sect = sect;
       node.update();
-    
+      if (game.flags.devoted) // DEVOTED: pick a resource to buff with
+        sect.powerID = Std.random(Game.numPowers);
+
       if (!isAI)
-        ui.log2(this, node.name + " becomes the leader of a sect " + sect.name + ".",
-          { type: 'sect' });
+        ui.log2(this, node.name +
+          " becomes the puppeteer of a sect called " + sect.name + ".",
+          { type: 'sect', symbol: 's' });
+
+      // tutorial
+      if (!isAI)
+        game.tutorial.play('gainSect');
     }
 
-
 // remove a sect
-  public function removeSect(node: Node)
+  public function removeSect(node: Node, src: String)
     {
-      ui.log2(this, "Sect " + node.sect.name + " has been destroyed without leadership.",
-        { type: 'sect' });
+      var text = node.sect.name;
+      if (src == 'investigator')
+        text += ' has dispersed without proper inspiration.';
+      else if (src == 'sacrifice')
+        text += ' was sacrificed to discourage the investigator.';
+      else if (src == 'attack')
+        text += ' was disbanded when its puppeteer has left the cult.';
+      else if (src == 'harvest')
+        text += ' was harvested for resources.';
+      if (src != null)
+        ui.log2(this, text, { type: 'sect', symbol: 's' });
       sects.remove(node.sect);
+      node.sect.leader = null;
       node.sect = null;
       node.update();
     }
 
+// get sect by id
+  public function getSect(id: Int): Sect
+    {
+      for (s in sects)
+        if (s.id == id)
+          return s;
+      return null;
+    }
 
 // setup random starting node
   public function setOrigin()
+    {
+      // change method on the difficulty setting
+      if (game.difficulty.numCults <= 4)
+        setupOriginFair();
+      else setupOriginRandom();
+
+      origin.owner = this;
+      if (!isAI || game.difficulty.isOriginKnown)
+        origin.isKnown[this.id] = true;
+
+      nodes.add(origin);
+      origin.update();
+//      origin.setOwner(this);
+
+      // make starting node generator
+      for (i in 0...Game.numPowers)
+        if (origin.power[i] > 0)
+          {
+            origin.powerGenerated[i] = 1;
+            powerMod[i] += 1;
+          }
+      origin.setGenerator(true);
+
+      origin.setVisible(this, true);
+      origin.showLinks();
+      highlightedNodes.clear(); // hack: clear highlighted
+
+      // give initial power from starting node
+      for (i in 0...Game.numPowers)
+        {
+          power[i] += Math.round(origin.powerGenerated[i]);
+
+          // 50% chance of raising the conquer difficulty
+          if (Math.random() < 0.5)
+            origin.power[i]++;
+        }
+      origin.update();
+
+      // remove close generators on hard for player
+      if (!isAI && game.difficultyLevel == 2)
+        removeCloseGenerators();
+    }
+
+
+// pick an origin fairly
+  function setupOriginFair()
+    {
+      // pick unused quadrant and set origin there
+      // pick unused quadrant
+      var quad = game.freeQuadrants[Std.random(game.freeQuadrants.length)];
+      game.freeQuadrants.remove(quad);
+
+      // get all nodes in this quadrant
+      var tmp = [];
+      var outer: Node = null;
+      var outerd = 10000.0;
+      for (n in game.nodes)
+        if (quad.x1 <= n.x && quad.y1 <= n.y &&
+            n.x <= quad.x2 && n.y <= quad.y2)
+          {
+            tmp.push(n);
+
+            // also pick outermost node for tutorial
+            if (outer != null && !isAI && game.isTutorial)
+              {
+                var d = 0.0;
+                if (quad.id == 0)
+                  d = n.distanceXY(quad.x1, quad.y1);
+                else if (quad.id == 1)
+                  d = n.distanceXY(quad.x2, quad.y1);
+                else if (quad.id == 2)
+                  d = n.distanceXY(quad.x1, quad.y2);
+                else if (quad.id == 3)
+                  d = n.distanceXY(quad.x2, quad.y2);
+                if (d < outerd)
+                  {
+                    outer = n;
+                    outerd = d;
+                  }
+              }
+            else outer = n;
+          }
+      var node = tmp[Std.random(tmp.length)];
+      if (game.isTutorial && !isAI)
+        node = outer;
+      origin = node;
+    }
+
+
+// pick a random node as an origin
+  function setupOriginRandom()
     {
       // find appropriate node
       var index = -1;
@@ -237,45 +299,10 @@ class Cult
           if (ok == 0)
             continue;
 
-          break;
+          origin = game.nodes[index];
+          return;
         }
-	  origin = game.nodes[index];
-      origin.owner = this;
-      if (!isAI || game.difficulty.isOriginKnown)
-        origin.isKnown[this.id] = true;
-
-      nodes.add(origin);
-      origin.update();
-//      origin.setOwner(this);
-
-      // make starting node generator
-	  for (i in 0...Game.numPowers)
-	    if (origin.power[i] > 0)
-		  {
-		    origin.powerGenerated[i] = 1;
-			powerMod[i] += 1;
-		  }
-	  origin.setGenerator(true);
-
-      origin.setVisible(this, true);
-      origin.showLinks();
-      highlightedNodes.clear(); // hack: clear highlighted
-
-      // give initial power from starting node
-	  for (i in 0...Game.numPowers)
-        {
-	      power[i] += Math.round(origin.powerGenerated[i]);
-
-          // 50% chance of raising the conquer difficulty
-          if (Math.random() < 0.5)
-            origin.power[i]++;
-        }
-      origin.update();
-
-      // remove close generators on hard for player
-      if (!isAI && game.difficultyLevel == 2)
-        removeCloseGenerators();
-	}
+    }
 
 
 // remove close node generators
@@ -283,7 +310,7 @@ class Cult
     {
       for (n in origin.links)
         {
-/*        
+/*
           for (n2 in n.links)
             if (n2.owner == null && n2.isGenerator)
               n2.setGenerator(false);
@@ -291,17 +318,6 @@ class Cult
           if (n.owner == null && n.isGenerator)
             n.setGenerator(false);
         }
-    }
-
-
-// setter for awareness
-  function setAwareness(v)
-    {
-      awareness = v;
-      for (n in game.nodes)
-        if (n.isVisible(this) && n.owner != this)
-          n.update();
-      return v;
     }
 
 
@@ -362,12 +378,13 @@ class Cult
 // lower awareness
   public function lowerAwareness(pwr)
     {
-      if (awareness == 0 || adeptsUsed >= adepts || pwr == 3)
+      if (awarenessBase == 0 || adeptsUsed >= adepts || pwr == 3 ||
+          power[pwr] < 1)
         return;
 
-      awareness -= 2;
-      if (awareness < 0)
-        awareness = 0;
+      awarenessBase -= 2;
+      if (awarenessBase < 0)
+        awarenessBase = 0;
       power[pwr]--;
       adeptsUsed++;
 
@@ -376,6 +393,16 @@ class Cult
           ui.updateStatus();
           ui.map.paint();
         }
+    }
+
+
+// lower investigator willpower chance
+  public function getLowerWillChance(): Int
+    {
+      var failChance = 30 * difficulty.investigatorWillpower;
+      if (investigator.name == "Randolph Carter") // wink-wink
+        failChance += 10;
+      return Std.int(100 - failChance);
     }
 
 
@@ -390,81 +417,139 @@ class Cult
       adeptsUsed++;
 
       // chance of failure
-      var failChance = 30 * difficulty.investigatorWillpower;
-      if (investigator.name == "Randolph Carter") // wink-wink
-        failChance += 10;
-      if (100 * Math.random() < failChance)
+      if (Std.random(100) > getLowerWillChance())
         {
           if (!isAI)
             {
-              ui.msg("You have failed to shatter the will of the investigator.");
+              ui.msg('You have failed to shatter the will of the investigator.');
               ui.updateStatus();
             }
           return;
         }
 
-      investigator.will -= 1;
-
-      // kill investigator
-      if (investigator.will <= 0)
-        {
-          ui.log2(this, "The investigator of the " + fullName +
-            " has disappeared.", { symbol: 'I' });
-          killInvestigator();
-        }
-
+      investigator.lowerWillpower(1);
       if (!isAI)
-        ui.updateStatus();
+        {
+          if (hasInvestigator)
+            ui.msg('Investigator willpower lowered.');
+          else ui.msg('The investigator disappeared.');
+          ui.updateStatus();
+        }
     }
 
 
 // remove investigator for this cult
-  function killInvestigator()
+  public function killInvestigator()
     {
       investigator = null;
       hasInvestigator = false;
       investigatorTimeout = 3;
 
       game.failSectTasks(); // fail all tasks for that investigator
+
+      if (!isAI)
+        game.tutorial.play('investigatorDead');
     }
 
 
 // convert resources
   public function convert(from: Int, to: Int)
     {
-	  if (power[from] < Game.powerConversionCost[from])
-	    {
+      if (from == to)
+        return;
+      if (power[from] < Game.powerConversionCost[from])
+        {
 //          if (!isAI)
-//	        ui.msg("Not enough " + Game.powerNames[from]);
-		  return;
-		}
-	
-	  power[from] -= Game.powerConversionCost[from];
-	  power[to] += 1;
+//            ui.msg("Not enough " + Game.powerNames[from]);
+          return;
+        }
+
+      power[from] -= Game.powerConversionCost[from];
+      power[to] += 1;
       if (!isAI)
-	    ui.updateStatus();
-	}
+        ui.updateStatus();
+    }
 
 
 // cult can upgrade?
-  public function canUpgrade(level: Int):Bool
+  public function canUpgrade(level: Int): Bool
     {
+      if (game.isFinished)
+        return false;
       if (level < 2)
-        return (getNumFollowers(level) >= Game.upgradeCost &&
-          virgins >= level + 1);
+        {
+          // base
+          var ok = (getNumFollowers(level) >= Game.upgradeCost &&
+            virgins >= level + 1);
+          if (!ok)
+            return false;
+
+          // flags
+          if (game.flags.artifacts)
+            return artifacts.canUpgrade(level);
+
+          return true;
+        }
+      // final ritual
       else return
-        (priests >= Game.upgradeCost && virgins >= game.difficulty.numSummonVirgins &&
+        (priests >= Static.rituals['summoning'].priests &&
+         virgins >= game.difficulty.numSummonVirgins &&
          !isRitual);
+    }
+
+
+// cult can start this ritual?
+  public function canStartRitual(id: String): Bool
+    {
+      if (game.isFinished)
+        return false;
+      var info = Static.rituals[id];
+      if (isRitual || priests < info.priests || virgins < info.virgins)
+        return false;
+
+      // all origins are known
+      if (id == 'unveiling')
+        {
+          for (c in game.cults)
+            if (c.origin != null && !c.origin.isKnown[this.id])
+              return true;
+          return false;
+        }
+
+      return true;
+    }
+
+
+// start ritual by id
+  public function startRitual(id: String)
+    {
+      if (!canStartRitual(id))
+        return;
+
+      // player is already in ritual
+      if (isRitual)
+        {
+          ui.alert("You must first finish the current ritual before starting another.");
+          return;
+        }
+
+      var info = Static.rituals[id];
+      virgins -= info.virgins;
+      ritual = info;
+      ritualPoints = getMaxRitualPoints();
+      isRitual = true;
+      ui.log2(this, fullName + " has started the " + ritual.name + ".",
+        { symbol: 'R' });
+      if (!isAI)
+        ui.updateStatus();
     }
 
 
 // upgrade nodes (fupgr)
   public function upgrade(level)
     {
-      if (!canUpgrade(level)) return; // cannot upgrade
-
-      if ((level == 2 && virgins < game.difficulty.numSummonVirgins) ||
-          (level < 2 && virgins < level + 1))
+      // cannot upgrade
+      if (!canUpgrade(level))
         return;
 
       // summon
@@ -481,7 +566,8 @@ class Cult
         {
           if (!isAI)
             {
-              ui.msg("Ritual failed.");
+              ui.msg('You have failed the ritual to gain ' +
+                (level == 0 ? 'an adept.' : 'a priest.'));
               ui.updateStatus();
             }
           return;
@@ -502,22 +588,31 @@ class Cult
       // find a node with maximum amount of links
       if (!ok)
         {
-          var upNode = findMostLinkedNode(level);
+          upNode = findMostLinkedNode(level);
           if (upNode != null)
             {
               upNode.upgrade();
               ok = true;
             }
         }
+      if (!ok)
+        {
+          trace('BUG: Cannot upgrade. No nodes found.');
+          return;
+        }
+
+      // expansions
+      if (game.flags.artifacts && level == 1)
+        artifacts.onUpgrade(upNode);
 
       if (!isAI)
         ui.updateStatus();
-      
+
       // notify player
       if (this != game.player && priests >= 2)
         ui.log2(this, fullName + " has " + priests + " priests. Be careful.");
 
-      // cult un-paralyzed with priests 
+      // cult un-paralyzed with priests
       if (isParalyzed && priests >= 1)
         {
           unParalyze();
@@ -525,6 +620,17 @@ class Cult
         }
 
       ui.map.paint();
+
+      // tutorial hooks
+      if (!isAI)
+        {
+          if (adepts >= 1)
+            game.tutorial.play('gainAdept');
+          if (adepts >= 3)
+            game.tutorial.play('gain3Adepts');
+          if (priests >= 1)
+            game.tutorial.play('gainPriest');
+        }
     }
 
 
@@ -597,8 +703,14 @@ class Cult
 // chance of gaining investigator
   public function getInvestigatorChance(): Int
     {
-      return Std.int((20 * priests + 5 * adepts + 0.5 * neophytes) *
-        difficulty.investigatorChance);
+      // chance depends on size
+      var x = (20 * priests + 5 * adepts + 0.5 * neophytes) *
+        difficulty.investigatorChance * // difficulty mod
+        (100.0 + awareness) / 100.0; // awareness mod
+      // on very low awareness we halve it
+      if (awareness <= 5)
+        x /= 2.0;
+      return Std.int(x);
     }
 
 
@@ -616,8 +728,8 @@ class Cult
       isRitual = true;
       for (c in game.cults)
         isInfoKnown[c.id] = true;
-      ritual = Static.rituals[0];
-      ritualPoints = ritual.points;
+      ritual = Static.rituals['summoning'];
+      ritualPoints = getMaxRitualPoints();
 
       // every cult starts war with this one
       for (p in game.cults)
@@ -627,11 +739,18 @@ class Cult
             wars[p.id] = true;
           }
 
-      ui.alert(fullName + " has started the " + ritual.name + ".<br><br>" +
-        info.summonStart);
-      ui.log2(this, fullName + " has started the " + ritual.name + ".");
+      ui.alert('<h2>FINAL RITUAL STARTED</h2><div class=fluff>' +
+        info.summonStart + '</div><br>' +
+        fullName + ' has started the ' + ritual.name + '.', {
+          w: 700,
+          h: 400,
+        });
+      ui.log2(this, fullName + " has started the " + ritual.name + ".",
+        { symbol: 'R' });
       if (!isAI)
         ui.updateStatus();
+      if (isAI)
+        game.tutorial.play('enemyFinalRitual');
     }
 
 
@@ -640,8 +759,38 @@ class Cult
     {
       if (ritual.id == "summoning")
         summonFinish();
+      else if (ritual.id == "unveiling")
+        {
+          ui.log2(this, fullName + ' has finished the ' + ritual.name + '.',
+            { symbol: 'R' });
+          unveilingFinish();
+        }
 
       isRitual = false;
+    }
+
+
+// finish unveiling
+  function unveilingFinish()
+    {
+      if (!isAI)
+        {
+          ui.alert('<h2>RITUAL COMPLETED</h2><div class=fluff>' +
+            Static.templates['ritualUnveiling'] + '</div><br>' +
+            fullName + ' has finished the ' + ritual.name +
+            '. All cult origins are revealed.', {
+            w: 600,
+            h: 345,
+          });
+        }
+
+      for (c in game.cults)
+        if (c.origin != null)
+          {
+            c.origin.setVisible(this, true);
+            c.origin.isKnown[this.id] = true;
+          }
+      ui.map.paint();
     }
 
 
@@ -652,35 +801,40 @@ class Cult
       if (100 * Math.random() > getUpgradeChance(2))
         {
           // 1 priest goes totally insane and has to be replaced with neophyte
+          var tmp = [];
           for (n in nodes)
             if (n.level == 2)
-              {
-                n.level = 0;
-                n.update();
-                break;
-              }
+              tmp.push(n);
+          var n = tmp[Std.random(tmp.length)];
+          n.generateLite();
 
+          var msg =
+            '<h2>FINAL RITUAL FAILED</h2><div class=fluff>' +
+            info.summonFail + '</div><br>' +
+            fullName + " has failed to perform the " +
+            Static.rituals['summoning'].name +
+            '. The stars were not properly aligned. One of the high priests goes insane.';
+
+          ui.alert(msg, { w: 700, h: 400 });
           if (!isAI)
             {
-              ui.alert("The stars were not properly aligned. The high priest goes insane.");
-              ui.log2(this, fullName + " has failed to perform the " + 
-                Static.rituals[0].name + ".");
+              ui.log2(this, fullName + " has failed to perform the " +
+                Static.rituals['summoning'].name + ".",
+              { symbol: 'R' });
               ui.updateStatus();
             }
           else
             {
-              ui.alert(fullName +
-                " has failed to perform the " + Static.rituals[0].name + ".<br><br>" +
-                info.summonFail);
-              ui.log2(this, fullName + " has failed the " +
-                Static.rituals[0].name + ".");
+              ui.log2(this, fullName + " has failed to perform the " +
+                Static.rituals['summoning'].name + ".",
+                { symbol: 'R' });
             }
           return;
         }
 
-      game.isFinished = true;
       ui.finish(this, "summon");
-      ui.log2(this, "Game over.");
+      ui.log2(this, fullName + " has completed the " +
+        Static.rituals['summoning'].name + ". Game over.");
     }
 
 
@@ -691,25 +845,34 @@ class Cult
       if (isParalyzed && paralyzedTurns > 3)
         {
           unParalyze();
-          ui.log2(this, fullName + " has gained an origin and is no longer paralyzed.");
+          var text = fullName + " has gained an origin and is no longer paralyzed.";
+          ui.log2(this, text);
+          if (!isAI)
+            ui.alert(text,
+              { h: UI.getVarInt('--alert-window-height-2lines') });
         }
 
-      // if a cult has any adepts, each turn it has a 
+      // if a cult has any adepts, each turn it has a
       // chance of an investigator finding out about it
       if ((priests > 0 || adepts > 0) &&
-          !hasInvestigator && 100 * Math.random() < getInvestigatorChance() &&
+          !hasInvestigator &&
+          100 * Math.random() < getInvestigatorChance() &&
           investigatorTimeout == 0)
         {
           hasInvestigator = true;
           ui.log2(this, "An investigator has found out about " + fullName + ".",
             {
-              important: !this.isAI, 
-              symbol: 'I' 
+              important: !this.isAI,
+              symbol: 'I'
             });
           investigator = new Investigator(this, ui, game);
 
           if (!isAI)
             ui.updateStatus();
+
+          // tutorial
+          if (!isAI)
+            game.tutorial.play('investigator');
         }
 
       if (investigatorTimeout > 0)
@@ -718,7 +881,7 @@ class Cult
       // finish a ritual if there is one
       if (isRitual)
         {
-          ritualPoints -= priests;
+          ritualPoints -= getRitualPoints();
           if (ritualPoints <= 0)
             ritualFinish();
 
@@ -727,20 +890,20 @@ class Cult
             return;
         }
 
-	  // give power and recalculate power mod cache
-	  powerMod = [0, 0, 0, 0];
-	  for (node in nodes)
-	    if (node.isGenerator)
-		  for (i in 0...Game.numPowers)
-		    {
+      // give power and recalculate power mod cache
+      powerMod = [0, 0, 0, 0];
+      for (node in nodes)
+        if (node.isGenerator)
+          for (i in 0...Game.numFullPowers)
+            {
               // failure chance
               if (100 * Math.random() < getResourceChance())
-		        power[i] += Math.round(node.powerGenerated[i]);
-			  powerMod[i] += Math.round(node.powerGenerated[i]);
-			}
+                power[i] += node.powerGenerated[i];
+              powerMod[i] += node.powerGenerated[i];
+            }
 
       // neophytes bring in some virgins
-      var value = Std.int(Math.random() * maxVirgins());
+      var value = Std.random(maxVirgins() + 1);
       virgins += value;
       adeptsUsed = 0;
 
@@ -757,10 +920,26 @@ class Cult
       createSects(); // create new sects
 
       // run sect advisor
-      if (options.getBool('sectAdvisor'))
+      if (game.options.getBool('sectAdvisor'))
         game.sectAdvisor.run(this);
+
+      // expansions
+      if (game.flags.artifacts && !isAI)
+        artifacts.turn();
+
+      // recalculate base awareness
+      calcBaseAwareness();
     }
 
+// recalculate base awareness
+  function calcBaseAwareness()
+    {
+      // DEVOTED: bonus to mod
+      awarenessMod = 0;
+      for (s in sects)
+        if (s.isDevoted)
+          awarenessMod += Const.devotedAwarenessBonus[s.level];
+    }
 
 // create new sects
   function createSects()
@@ -776,16 +955,19 @@ class Cult
     }
 
 
-  public inline function maxVirgins(): Int
+  public function maxVirgins(): Int
     {
-      return Std.int(neophytes / 4 - 0.5);
+      var x = Std.int(neophytes / 4 - 0.5);
+      if (x < 0)
+        return 0;
+      return x;
     }
 
 
 // can this player activate this node?
   public function canActivate(node: Node): Bool
     {
-	  for (i in 0...Game.numPowers)
+      for (i in 0...Game.numFullPowers)
         if (power[i] < node.power[i])
           return false;
 
@@ -818,8 +1000,8 @@ class Cult
           return "";
         }
 
-	  if (node.owner == this)
-		return "isOwner";
+      if (node.owner == this)
+        return "isOwner";
 
       // cannot gain a generator if it has 3+ active links
       if (node.isGenerator && node.owner != null)
@@ -831,17 +1013,38 @@ class Cult
               cnt++;
 
           if (cnt >= 3)
-            return "hasLinks";
+            {
+              if (!isAI)
+                ui.alert("Generator has " + cnt + " links.");
+              return "hasLinks";
+            }
         }
-  
-	  // check for power
-	  for (i in 0...Game.numPowers)
-		if (power[i] < node.power[i])
-          return "notEnoughPower";
 
-	  // subtract power
-	  for (i in 0...Game.numPowers)
-		power[i] = Math.round(power[i] - node.power[i]);
+      // check for power
+      for (i in 0...Game.numFullPowers)
+        if (power[i] < node.power[i])
+          {
+            if (!isAI)
+              ui.alert("Not enough resources of needed type.");
+
+            return "notEnoughPower";
+          }
+
+      // subtract power
+      for (i in 0...Game.numFullPowers)
+        power[i] = power[i] - node.power[i];
+
+      // expansion nodes
+      if (node.type != 'person')
+        {
+          if (isAI)
+            {
+              trace('BUG: AI activated ' + node.type + ' node.');
+              return '';
+            }
+          if (node.type == 'artifact')
+            return game.artifacts.activate(this, cast node);
+        }
 
       // failure chance
       if (100 * Math.random() > getGainChance(node))
@@ -854,16 +1057,16 @@ class Cult
           return "failure";
         }
 
-      // lose 1 level
-      if (node.level > 0)
-        node.level--;
-
       // lose sect
       if (node.sect != null)
-        node.owner.removeSect(node);
+        node.owner.removeSect(node, 'attack');
 
-      // save prev owner
-      node.setOwner(this);
+      // on gaining enemy node lite regen it
+      if (node.owner != null)
+        node.generateLite();
+      node.setOwner(this); // set new owner on the node
+      if (!isAI)
+        ui.map.showTooltip(node);
 
       // remove temp generator state
       if (node.isTempGenerator)
@@ -894,16 +1097,17 @@ class Cult
       wars[cult.id] = true;
 
       // log messages
-      var text = fullName + " has declared war against " + cult.fullName + ".";
-      var m:LogPanelMessage = {
+      var text = fullName + " has started a war against " + cult.fullName + ".";
+      var m: LogPanelMessage = {
         id: -1,
         old: false,
         type: 'cults',
         text: text,
-        obj: { c1: this, c2: cult },
+        objID: this.id,
+        objID2: cult.id,
         turn: game.turns + 1,
         params: {}
-        };
+      };
       for (c in game.cults)
         if (this.isInfoKnown[c.id] || cult.isInfoKnown[c.id] ||
             this.isDiscovered[c.id] || cult.isDiscovered[c.id])
@@ -911,6 +1115,10 @@ class Cult
             c.log(text);
             c.logPanel(m);
           }
+
+      if (!cult.isAI)
+        ui.alert(text,
+          { h: UI.getVarInt('--alert-window-height-2lines') });
     }
 
 
@@ -925,15 +1133,16 @@ class Cult
 
       // log messages
       var text = fullName + " has made peace with " + cult.fullName + ".";
-      var m:LogPanelMessage = {
+      var m: LogPanelMessage = {
         id: -1,
         old: false,
         type: 'cults',
         text: text,
-        obj: { c1: this, c2: cult },
+        objID: this.id,
+        objID2: cult.id,
         turn: game.turns + 1,
         params: {}
-        };
+      };
       for (c in game.cults)
         if (this.isInfoKnown[c.id] || cult.isInfoKnown[c.id] ||
             this.isDiscovered[c.id] || cult.isDiscovered[c.id])
@@ -941,16 +1150,24 @@ class Cult
             c.log(text);
             c.logPanel(m);
           }
+
+      if (!cult.isAI)
+        ui.alert(text,
+          { h: UI.getVarInt('--alert-window-height-2lines') });
     }
 
 
 // lose node to new owner (who is null in the case of losing)
-  public function loseNode(node: Node, ?cult: Cult)
+  public function loseNode(node: Node, ?cult: Cult = null)
     {
       // raise public awareness
       awareness++;
       if (!isAI)
         ui.updateStatus();
+
+      // expansions
+      if (game.flags.artifacts)
+        artifacts.onLose(node);
 
       // declare war
       if (cult != null && nodes.length > 0)
@@ -958,7 +1175,7 @@ class Cult
 
       // converting the origin
       if (origin == node)
-        loseOrigin();
+        loseOrigin(cult);
 
       node.update();
 
@@ -968,7 +1185,7 @@ class Cult
 
 
 // lose origin
-  public function loseOrigin()
+  public function loseOrigin(cult: Cult)
     {
       if (nodes.length > 0)
         ui.log2(this, fullName + " has lost its Origin.");
@@ -977,7 +1194,8 @@ class Cult
       if (isRitual)
         {
           isRitual = false;
-          ui.log2(this, "The execution of " + ritual.name + " has been stopped.");
+          ui.log2(this, "The execution of " + ritual.name +
+            " has been stopped.", { symbol: 'X' });
 
           game.failSectTasks(); // fail all appropriate sect tasks
         }
@@ -1000,7 +1218,7 @@ class Cult
         {
           if (nodes.length > 0)
             ui.log2(this, "Destroying the origin of " + fullName +
-              " has left it completely paralyzed.");
+              " has left it completely paralyzed.", { symbol: 'X' });
           isParalyzed = true;
 
           if (hasInvestigator) // remove investigator
@@ -1008,8 +1226,12 @@ class Cult
               killInvestigator();
               if (nodes.length > 0)
                 ui.log2(this, "The investigator of the " + fullName +
-                  " has disappeared thinking the cult is finished.");
+                  " has disappeared thinking the cult is finished.",
+                  { symbol: 'I' });
             }
+
+          if (!isAI)
+            game.tutorial.play('cultParalyzed');
         }
       else
         {
@@ -1017,6 +1239,43 @@ class Cult
             fullName + ".");
           origin.update();
           ui.map.paint();
+        }
+
+      // attacker can gain cult stash
+      if (cult != null)
+        cult.gainStash(this);
+    }
+
+
+// attacker can gain cult stash on conquering origin
+// since AI dont actually stash resources, we generate stash based on cult size
+  function gainStash(from: Cult)
+    {
+      if (Std.random(100) > 30)
+        return;
+
+      var text = fullName +
+        ' has acquired a stash of resources with the origin of ' +
+        from.fullName;
+      text += (isAI ? '.' : ': ');
+      var sum = 0;
+      for (i in 0...3)
+        sum += (i + 1) * getNumFollowers(i);
+      var val = Std.int(sum / 4);
+      if (val == 0)
+        return;
+      var id = Std.random(3);
+      if (Std.random(100) < 25)
+        id = 3;
+      if (!isAI)
+        text += val + ' ' + UI.powerName(id) + '.';
+      power[id] += val;
+      ui.log2(from, text);
+      if (!isAI)
+        {
+          ui.alert(text,
+            { h: UI.getVarInt('--alert-window-height-2lines') });
+          ui.status.update();
         }
     }
 
@@ -1028,17 +1287,23 @@ class Cult
         return;
 
       // check for finish
-      var ok = true;
+      var allDead = true, allParalyzed = true;
       for (p in game.cults)
-        if (p != this && !p.isDead && !p.isParalyzed)
-          ok = false;
+        {
+          if (p == this)
+            continue;
+          if (!p.isDead)
+            allDead = false;
+          if (!p.isParalyzed)
+            allParalyzed = false;
+        }
+      // all cults dead, game over
+      if (allDead)
+        ui.finish(this, "conquer");
 
-      // there are active cults left
-      if (!ok)
-        return;
-
-      game.isFinished = true;
-      ui.finish(this, "conquer");
+      // all cults paralyzed, game over if no flag is set
+      else if (allParalyzed && !game.flags.noBlitz)
+        ui.finish(this, "conquer");
     }
 
 
@@ -1048,7 +1313,8 @@ class Cult
       if (this.nodes.length > 0 || isDead)
         return;
 
-      ui.log2(this, fullName + " has been destroyed, forgotten by time.");
+      ui.log2(this, fullName + " has been destroyed, forgotten by time.",
+        { symbol: 'X' });
       ui.map.paint();
 
       isDead = true;
@@ -1082,11 +1348,8 @@ class Cult
               }
 
           if (!humansAlive)
-            {
-              game.isFinished = true;
-              ui.finish(this,
-                game.difficulty.numPlayers == 1 ? "wiped" : "multiplayerFinish");
-            }
+            ui.finish(this,
+              game.difficulty.numPlayers == 1 ? "wiped" : "multiplayerFinish");
         }
       else checkVictory();
     }
@@ -1098,6 +1361,27 @@ class Cult
       cult.isDiscovered[this.id] = true;
       this.isDiscovered[cult.id] = true;
       ui.log2(this, fullName + " has discovered the existence of " + cult.fullName + ".");
+      if (!isAI)
+        {
+          if (sects.length > 0)
+            {
+              game.tutorial.play('discoverCult');
+              game.tutorial.disable('discoverCultNoSects');
+            }
+          else
+            {
+              game.tutorial.play('discoverCultNoSects');
+              game.tutorial.disable('discoverCult');
+            }
+        }
+    }
+
+
+// add message to log and log panel
+  public function logAndPanel(s: String, ?params:Dynamic = null)
+    {
+      log(s);
+      logPanelShort(s, params);
     }
 
 
@@ -1109,21 +1393,23 @@ class Cult
 
       var s2 = ui.logWindow.getRenderedMessage(s);
       logMessages += s2;
+      logMessagesTurn += s2;
+      ui.logConsole.update();
     }
 
 
 // add message to log panel (short)
-  public inline function logPanelShort(s: String)
+  public inline function logPanelShort(s: String, ?params:LogPanelMessageParams = null)
     {
-      logPanel({ 
-        id: -1, 
+      logPanel({
+        id: -1,
         old: false,
-        type: 'cult', 
-        text: s, 
-        obj: this, 
-        turn: game.turns + 1, 
-        params: {}
-        });
+        type: 'cult',
+        text: s,
+        objID: this.id,
+        turn: game.turns + 1,
+        params: (params == null ? {} : params)
+      });
     }
 
 
@@ -1149,14 +1435,14 @@ class Cult
 
 
 // getter for virgins
-  function getVirgins()
+  function get_virgins()
     {
       return power[3];
     }
 
 
 // setter for virgins
-  function setVirgins(v)
+  function set_virgins(v)
     {
       power[3] = v;
       return v;
@@ -1173,26 +1459,116 @@ class Cult
       return cnt;
     }
 
+// dump cult info for saving
+  public function save(): _SaveCult
+    {
+      var obj: _SaveCult = {
+        id: id,
+        infoID: infoID,
+        difficulty: difficulty.level,
+        isInfoKnown: isInfoKnown,
+        isDiscovered: isDiscovered,
+        isAI: isAI,
+        isDead: isDead,
+        isParalyzed: isParalyzed,
+        paralyzedTurns: paralyzedTurns,
+        ritualPoints: 0,
+        awarenessMod: awarenessMod,
+        awarenessBase: awarenessBase,
+        power: power,
+        wars: wars,
+        origin: (origin != null ? origin.id : -1),
+        adeptsUsed: adeptsUsed,
+        sects: [],
+        investigatorTimeout: investigatorTimeout,
+        logMessages: logMessages,
+        logMessagesTurn: logMessagesTurn,
+        logPanelMessages: [],
+        artifacts: artifacts.save(),
+        fluffShown: [],
+      };
+      if (isRitual)
+        {
+          obj.ritual = ritual.id;
+          obj.ritualPoints = ritualPoints;
+        }
+      for (s in sects)
+        obj.sects.push(s.save());
+      if (hasInvestigator)
+        obj.investigator = investigator.save();
+      for (m in logPanelMessages)
+        obj.logPanelMessages.push(m);
+      for (f in fluffShown.keys())
+        obj.fluffShown.push(f);
+      return obj;
+    }
+
+// load node info from json-object
+  public function load(c: _SaveCult)
+    {
+      difficulty = Static.difficulty[c.difficulty];
+      isInfoKnown = c.isInfoKnown;
+      isDiscovered = c.isDiscovered;
+      isDead = c.isDead;
+      isParalyzed = c.isParalyzed;
+      paralyzedTurns = c.paralyzedTurns;
+      if (c.ritual != null)
+        {
+          isRitual = true;
+          ritualPoints = c.ritualPoints;
+          for (r in Static.rituals)
+            if (r.id == c.ritual)
+              ritual = r;
+        }
+      awarenessMod = c.awarenessMod;
+      awarenessBase = c.awarenessBase;
+      power = c.power;
+      wars = c.wars;
+      // NOTE: origin is loaded in Game.hx
+      adeptsUsed = c.adeptsUsed;
+      // NOTE: sects are loaded in Game.hx
+      investigatorTimeout = c.investigatorTimeout;
+      if (c.investigator != null)
+        {
+          hasInvestigator = true;
+          investigator = new Investigator(this, ui, game);
+          investigator.load(c.investigator);
+        }
+      logMessages = c.logMessages;
+      logMessagesTurn = c.logMessagesTurn;
+      for (m in c.logPanelMessages)
+        logPanelMessages.add(m);
+      // NOTE: artifacts are loaded in Game.hx
+      for (f in c.fluffShown)
+        fluffShown[f] = true;
+    }
+
+  // ============================================================
 
 // getters and setters for different numFollowers
-  function getNeophytes()
+  function get_neophytes()
     {
       return getNumFollowers(0);
     }
 
 
-  function getAdepts()
+  function get_adepts()
     {
       return getNumFollowers(1);
     }
 
 
-  function getPriests()
+  function get_priests()
     {
       return getNumFollowers(2);
     }
 
-  function getFullName(): String
+  function get_awareness()
+    {
+      return awarenessBase + awarenessMod;
+    }
+
+  function get_fullName(): String
     {
       return UI.cultName(id, info);
     }
@@ -1201,14 +1577,18 @@ class Cult
 
 // log panel message type
 
-typedef LogPanelMessage =
-{
+typedef LogPanelMessage = {
   var id: Int; // message id
   var old: Bool; // message old?
   var type: String; // message type (cult, cults, etc)
   var text: String; // message text
-  var obj: Dynamic; // message object (origin etc)
+  @:optional var objID: Int; // message object ID (origin etc)
+  @:optional var objID2: Int; // message object ID 2 (cult etc)
   var turn: Int; // turn on which message appeared
-  var params: Dynamic; // additional message parameters
+  var params: LogPanelMessageParams; // additional message parameters
+};
+typedef LogPanelMessageParams = {
+  @:optional var symbol: String;
+  @:optional var color: String;
 };
 

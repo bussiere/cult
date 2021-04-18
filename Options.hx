@@ -2,13 +2,15 @@
 
 class Options
 {
-  var cult: Cult;
-  var list: Hash<Dynamic>; // player options
+  var game: Game;
+  var ui: UI;
+  var list: Map<String, Dynamic>; // player options
 
-  public function new(c: Cult)
+  public function new(game: Game, ui: UI)
     {
-      cult = c;
-      list = new Hash<Dynamic>();
+      this.game = game;
+      this.ui = ui;
+      list = new Map();
     }
 
 
@@ -19,6 +21,8 @@ class Options
       if (val == false)
         list.remove(key);
       else list.set(key, val);
+
+      ui.config.set(key, '' + val);
     }
 
 

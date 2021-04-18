@@ -1,13 +1,19 @@
-all: clean cult.js
+#all: clean cult.js
+all: clean app.js-debug
+.PHONY: app.js app.js-debug cult.js
 
-cult.js: ; ./compile
+app.js:
+	~/haxe-4.0.2/run.sh cult-electron.hxml && \
+	cp app-classic.* app.* main.* package.json \
+	/mnt/e/Projects/electron-v7.1.10-win32-ia32/resources/app/ 
 
-#    export HAXE_LIBRARY_PATH=/home/infidel/haxe-2.0-linux/std && \
-#    ~/haxe-2.0-linux/haxe -cp . cult.hxml
-#	haxe cult.hxml
+app.js-debug:
+	~/haxe-4.0.2/run.sh -D mydebug cult-electron.hxml && \
+	cp app-classic.* app.* main.* package.json \
+	/mnt/e/Projects/electron-v7.1.10-win32-ia32/resources/app/ 
 
-cult.n:
-	haxe cultnme.hxml
+cult.js:
+	~/haxe-4.0.2/run.sh cult.hxml
 
 clean:
-	rm -f cult.n cult.js
+	rm -f cult.js app.js main.js

@@ -1,13 +1,17 @@
 // top menu
 
-import js.Lib;
+import js.Browser;
+import js.html.DivElement;
 
 class TopMenu
 {
   var ui: UI;
   var game: Game;
 
-  var panel: Dynamic;
+  var panel: DivElement;
+  var manual: DivElement;
+  var about: DivElement;
+  var advanced: DivElement;
 
   public function new(uivar: UI, gvar: Game)
     {
@@ -15,110 +19,137 @@ class TopMenu
       game = gvar;
 
       // panel element
-      panel = Lib.document.createElement("div");
+      panel = Browser.document.createDivElement();
       panel.id = 'topPanel';
-      panel.style.position = 'absolute';
-      panel.style.width = UI.mapWidth + 8;
-      panel.style.height = 26;
-      panel.style.left = 240;
-      panel.style.top = 5;
-      panel.style.background = '#090909';
-      Lib.document.body.appendChild(panel);
+      Browser.document.body.appendChild(panel);
 
       Tools.button({
         id: 'cults',
         text: "CULTS",
+        className: 'topButton uiButton',
         w: 70,
-        h: buttonHeight,
+        h: null,
         x: 20,
-        y: 2,
-        fontSize: 16,
+        y: null,
         container: panel,
-        title: "Click to view cults information (or press <span style=\"color:white\">C</span>).",
+        title: "Click to view cults information (or press <span class=shadow style=\"color:white\">C</span>).",
         func: onCults
-        });
+      });
 
       Tools.button({
         id: 'sects',
         text: "SECTS",
+        className: 'topButton uiButton',
         w: 70,
-        h: buttonHeight,
+        h: null,
         x: 110,
-        y: 2,
-        fontSize: 16,
+        y: null,
         container: panel,
-        title: "Click to view sects controlled by your cult (or press <span style=\"color:white\">S</span>).",
+        title: "Click to view sects controlled by your cult (or press <span class=shadow style=\"color:white\">S</span>).",
         func: onSects
-        });
+      });
 
       Tools.button({
         id: 'log',
         text: "LOG",
+        className: 'topButton uiButton',
         w: 70,
-        h: buttonHeight,
+        h: null,
         x: 200,
-        y: 2,
-        fontSize: 16,
+        y: null,
         container: panel,
-        title: "Click to view message log (or press <span style=\"color:white\">L</span>).",
+        title: "Click to view message log (or press <span class=shadow style=\"color:white\">L</span>).",
         func: onLog
-        });
-
-      Tools.button({
-        id: 'options',
-        text: "OPTIONS",
-        w: 100,
-        h: buttonHeight,
-        x: 290,
-        y: 2,
-        fontSize: 16,
-        container: panel,
-        title: "Click to view options (or press <span style=\"color:white\">O</span>).",
-        func: onOptions
-        });
+      });
 
       if (Game.isDebug)
         Tools.button({
           id: 'debug',
           text: "DEBUG",
+          className: 'topButton uiButton',
           w: 70,
-          h: buttonHeight,
-          x: 410,
-          y: 2,
-          fontSize: 16,
+          h: null,
+          x: 290,
+          y: null,
           container: panel,
-          title: "Click to open debug menu (or press <span style=\"color:white\">D</span>).",
+          title: "Click to open debug menu (or press <span class=shadow style=\"color:white\">D</span>).",
           func: onDebug
-          });
-  
-      Tools.button({
-        id: 'about',
-        text: "ABOUT",
-        w: 70,
-        h: buttonHeight,
-        x: 700,
-        y: 2,
-        fontSize: 16,
-        container: panel,
-        title: "Click to go to About page.",
-        func: onAbout
         });
 
-      Tools.button({
+      manual = Tools.button({
+        id: 'manual',
+        text: "MANUAL",
+        className: 'topButton uiButton',
+        w: 84,
+        h: null,
+        x: 597,
+        y: null,
+        container: panel,
+        title: "Click&nbsp;to&nbsp;open&nbsp;the&nbsp;manual&nbsp;(or&nbsp;press&nbsp;<span class=shadow style=\"color:white\">M</span>).",
+        func: function(event: Dynamic)
+          {
+#if electron
+            ui.manual.show();
+#else
+            Browser.window.open("https://github.com/infidel-/cult/wiki/Manual");
+#end
+          }
+      });
+
+      about = Tools.button({
+        id: 'about',
+        text: "ABOUT",
+        className: 'topButton uiButton',
+        w: 70,
+        h: null,
+        x: 700,
+        y: null,
+        container: panel,
+        // kludge to fix tooltip display
+        title: "Click&nbsp;to&nbsp;open&nbsp;About&nbsp;page.",
+        func: function(event: Dynamic)
+          {
+            ui.alert(
+              '<center style="font-size:19px;font-weight:bold">About</center><br>' +
+              'Code by Max Kowarski &lt;starinfidel@gmail.com&gt;<br>' +
+#if electron
+              'Texts by Phil Bordelon &lt;http://blortblort.org/&gt;<br>' +
+              'Music by Jeremy Rice &lt;https://curious-inversions.bandcamp.com&gt;<br><br>' +
+#else
+              'Texts by Phil Bordelon &lt;<a target=_blank href="http://blortblort.org/">blortblort.org</a>&gt;<br>' +
+              'Music by Jeremy Rice &lt;<a target=_blank href="https://curious-inversions.bandcamp.com">curious-inversions.bandcamp.com</a>&gt;<br><br>' +
+#end
+              '<span style="font-size:12px">Unfortunately, due to the fact that the music sources were lost at some point, you cannot purchase the music you listen to in the game. But there\'s a lot of newer works on the Bandcamp page, please check it out.</span><br><br>' +
+              'Unceasing gratitude to the man who has acquainted us all with the blasphemous effulgence of cosmic horror - H.P.Lovecraft.<br><br>' +
+              'This project uses icons made by Becris, Pixel perfect, Smashicons, Nikita Golubev, Vitaly Gorbachev, wanicon, and Freepik from ' +
+#if electron
+              'www.flaticon.com.', {
+#else
+              '<a target=_blank href="https://www.flaticon.com">www.flaticon.com</a>.', {
+#end
+              w: 750,
+              h: 300,
+              center: false,
+              fontSize: 14,
+            });
+          }
+      });
+
+      advanced = Tools.button({
         id: 'advanced',
         text: "A",
         w: 12,
         h: 12,
         x: 774,
-        y: 30,
+        y: 29,
         fontSize: 10,
         container: panel,
-        title: "Click to set/unset advanced map mode (or press <span style=\"color:white\">A</span>).",
+        // kludge to fix tooltip display
+        title: "Click&nbsp;to&nbsp;toggle&nbsp;advanced&nbsp;map&nbsp;mode&nbsp;(or&nbsp;press&nbsp;<span class=shadow style=\"color:white\">A</span>).",
         func: onAdvanced
-        });
-
-//      s += "<div class=button style='position: absolute; z-index: 20; top: 30; left: 240;' title='" + tipMainMenu +
-//        "' id='status.mainMenu'>A</div>";
+      });
+      if (UI.modernMode)
+        advanced.style.top = '25px';
     }
 
 
@@ -133,18 +164,10 @@ class TopMenu
       ui.sects.show();
     }
 
-
   public function onLog(event: Dynamic)
     {
       ui.logWindow.show();
     }
-
-
-  public function onOptions(event: Dynamic)
-    {
-      ui.options.show();
-    }
-
 
   public function onDebug(event)
     {
@@ -157,17 +180,27 @@ class TopMenu
 
   public function onAdvanced(event)
     {
-      ui.map.isAdvanced = !ui.map.isAdvanced;
-      game.player.options.set('mapAdvancedMode', ui.map.isAdvanced);
+      game.options.set('mapAdvancedMode',
+        !game.options.getBool('mapAdvancedMode'));
       ui.map.paint();
     }
 
-// about game button
-  function onAbout(event: Dynamic)
+
+// resize menu
+  public function resize()
     {
-      Lib.window.open("http://code.google.com/p/cult/wiki/About"); 
+      var panelRect = panel.getBoundingClientRect();
+      panel.style.width = (Browser.window.innerWidth -
+        panelRect.left - 8) + 'px';
+      var x = Std.parseInt(panel.style.width) -
+        Std.parseInt(about.style.width) - 30;
+      about.style.left = x + 'px';
+      x -= (Std.parseInt(manual.style.width) + 20);
+      manual.style.left = x + 'px';
+
+      var marginx = UI.getVarInt('--advanced-mode-margin-x');
+      advanced.style.left = (Browser.window.innerWidth -
+        Std.parseInt(advanced.style.width) - panelRect.left -
+        marginx) + 'px';
     }
-
-
-  static var buttonHeight = 20;
 }

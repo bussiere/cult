@@ -1,70 +1,17 @@
 // multiplayer menu class
 
-typedef MPUIInfo =
+import js.html.DivElement;
+import js.html.Element;
+import Flags;
+
+class MultiplayerMenu extends Window
 {
-  var name: String; // element name (and parameter name too)
-  var title: String; // parameter title
-  var type: String; // parameter type
-  var params: Dynamic; // additional parameters
-};
-
-class MultiplayerMenu
-{
-  var ui: UI;
-  var game: Game;
-
-  var window: Dynamic; // window element
-  var bg: Dynamic; // background element
-  var close: Dynamic; // close button element
-  public var isVisible: Bool;
-  var difElements: List<Dynamic>; // ui elements
-
-  static var difElementInfo: Array<MPUIInfo> =
-    [
-      { 
-        name: 'numCults', 
-        type: 'int', 
-        title: 'Number of cults (2-8)', 
-        params: null 
-      },
-      { 
-        name: 'numPlayers', 
-        type: 'int', 
-        title: 'Number of human players (1-8)', 
-        params: null 
-      },
-      { 
-        name: 'difficulty', 
-        type: 'select', 
-        title: 'Game difficulty', 
-        params: [ 'Easy', 'Normal', 'Hard' ]
-      },
-      { 
-        name: 'mapSize', 
-        type: 'select', 
-        title: 'Map size', 
-        params: [ 'Small', 'Medium', 'Large', 'Huge' ]
-      },
-    ];
+  var difElements: List<Element>; // ui elements
 
 
   public function new(uivar: UI, gvar: Game)
     {
-      ui = uivar;
-      game = gvar;
-      isVisible = false;
-
-      // main menu window
-      window = Tools.window(
-        {
-          id: "mpMenuWindow",
-          center: true,
-          winW: UI.winWidth,
-          winH: UI.winHeight,
-          w: 450,
-          h: 220,
-          z: 20
-        });
+      super(uivar, gvar, 'multiMenu', 450, 236, 20);
 
       Tools.label({
         id: 'titleLabel',
@@ -72,23 +19,20 @@ class MultiplayerMenu
         w: 350,
         h: 30,
         x: 50,
-        y: 10,
+        y: 5,
         container: window
-        });
+      });
 
-      var divel = js.Lib.document.createElement("div");
-      divel.style.background = '#030303';
-      divel.style.left = '10';
-      divel.style.top = '40';
-      divel.style.width = '430';
-      divel.style.height = '130';
-      divel.style.position = 'absolute';
-      divel.style.overflow = 'none';
+      var divel = js.Browser.document.createElement("div");
+      divel.className = 'uiText';
+      divel.style.top = '12.5%';
+      divel.style.width = '95.6%';
+      divel.style.height = '67%';
       window.appendChild(divel);
 
-      difElements = new List<Dynamic>();
+      difElements = new List();
       var y = 10;
-      
+
       for (info in difElementInfo)
         {
           // parameter label
@@ -101,72 +45,76 @@ class MultiplayerMenu
             y: y,
             fontSize: 14,
             container: divel
-            });
+          });
 
           // parameter field
-          var el = null;
+          var el: Element = null;
 
           if (info.type == 'bool')
             el = Tools.checkbox({
-              id: info.name,
+              id: 'multi_' + info.name,
               text: '' + Reflect.field(Static.difficulty[2], info.name),
               w: 100,
-              h: 20,
-              x: 320,
+              h: null,
+              x: 310,
               y: y,
               fontSize: 14,
               container: divel
-              });
+            });
           else if (info.type == 'select')
             {
-              el = js.Lib.document.createElement("select");
-              el.id = info.name;
-              el.style.width = '100';
-              el.style.height = '20';
-              el.style.left = '320';
+              el = js.Browser.document.createElement("select");
+              el.id = 'multi_' + info.name;
+              el.className = 'selectOption';
+              el.style.width = '100px';
+              el.style.left = '310px';
               el.style.top = '' + y;
-              el.style.fontSize = 14;
+              el.style.fontSize = '14px';
               el.style.position = 'absolute';
-              el.style.color = '#ffffff';
-              el.style.background = '#111';
-              var s = "<select class=secttasks onchange='Game.instance.ui.mpMenu.onSelect(this.value)'>";
+              var s = "<select class=selectOption onchange='Game.instance.ui.mpMenu.onSelect(this.value)'>";
               var list: Array<String> = info.params;
               for (item in list)
-                s += '<option class=secttasks>' + item;
+                s += '<option class=selectOption>' + item;
               s += '</select>';
               el.innerHTML = s;
               divel.appendChild(el);
             }
-          else el = Tools.textfield({
-            id: info.name,
-            text: '' + Reflect.field(Static.difficulty[2], info.name),
-            w: 100,
-            h: 20,
-            x: 320,
-            y: y,
-            fontSize: 14,
-            container: divel
-            });
+          else
+            {
+              el = Tools.textfield({
+                id: 'multi_' + info.name,
+                text: '' + info.value,
+                w: 100,
+                h: null,
+                x: 310,
+                y: y,
+                fontSize: 14,
+                container: divel
+              });
+            }
 
           y += 30;
-          
+
           difElements.add(el);
         }
 
-      Tools.button({
+      var b = Tools.button({
         id: 'startMultiplayerGame',
         text: "Start",
         w: 80,
-        h: 25,
-        x: 100,
-        y: 180,
+        h: null,
+        x: null,
+        y: null,
         container: window,
         func: onStartGame
-        });
+      });
+      b.style.left = '33%';
+      b.style.bottom = '3%';
+      b.style.transform = 'translate(-50%)';
 
-      bg = Tools.bg({ w: UI.winWidth + 20, h: UI.winHeight});
-      close = Tools.closeButton(window, 320, 180, 'mpMenuClose');
-	  close.onclick = onClose;
+      close.style.left = '66%';
+      close.style.bottom = '3%';
+      close.style.transform = 'translate(-50%)';
     }
 
 
@@ -175,7 +123,7 @@ class MultiplayerMenu
     {
       var el = null;
       for (e in difElements)
-        if (e.id == info.name)
+        if (e.id == 'multi_' + info.name)
           {
             el = e;
             break;
@@ -183,22 +131,22 @@ class MultiplayerMenu
 
       var value: Dynamic = null;
       if (info.type == 'int')
-        value = Std.parseInt(el.value);
+        value = Std.parseInt(untyped el.value);
       else if (info.type == 'float')
-        value = Std.parseFloat(el.value);
+        value = Std.parseFloat(untyped el.value);
       else if (info.type == 'select')
         {
           var list: Array<String> = info.params;
           var id = -1;
           for (i in 0...list.length)
-            if (list[i] == el.value)
+            if (list[i] == untyped el.value)
               {
                 value = i;
                 break;
               }
         }
       else if (info.type == 'bool')
-        value = el.checked;
+        value = untyped el.checked;
 
       return value;
     }
@@ -207,14 +155,13 @@ class MultiplayerMenu
   public function onStartGame(e: Dynamic)
     {
       var dif: Dynamic = { level: -1 };
-      UI.e("haxe:trace").innerHTML = "";
 
       // get difficulty level
-      var level = getInfoValue(difElementInfo[2]);
+      var level: Int = getInfoValue(difElementInfo[2]);
 
       // copy over stuff from this difficulty level
       for (f in Reflect.fields(Static.difficulty[level]))
-        Reflect.setField(dif, f, 
+        Reflect.setField(dif, f,
           Reflect.field(Static.difficulty[level], f));
 
       // set stuff changed by player
@@ -258,6 +205,13 @@ class MultiplayerMenu
                   dif.mapHeight = 2320;
                   dif.nodesCount = 1600;
                 }
+
+              if (UI.modernMode)
+                {
+                  dif.mapWidth = Std.int(dif.mapWidth * UI.vars.scaleFactor);
+                  dif.mapHeight = Std.int(dif.mapHeight * UI.vars.scaleFactor);
+
+                }
             }
         }
 
@@ -271,24 +225,21 @@ class MultiplayerMenu
       if (dif.numCults > 8)
         dif.numCults = 8;
 
-      game.restart(-1, dif);
+      // artifacts and dependent flags
+      game.resetFlags();
+      game.flags.artifacts = getInfoValue(difElementInfo[4]);
+      if (game.flags.artifacts)
+        for (f in FlagStatic.autoOn['artifacts'])
+          Reflect.setField(game.flags, f, true);
 
-      realClose();
-    }
-
-
-// show main menu
-  public function show()
-    {
-      window.style.display = 'inline';
-      bg.style.display = 'inline';
-      close.style.display = 'inline';
-      isVisible = true;
+      ui.newGame(-1, dif);
+      onClose(null);
+      ui.mainMenu.onClose(null);
     }
 
 
 // key press
-  public function onKey(e: Dynamic)
+  public override function onKey(e: Dynamic)
     {
       // exit menu
       if (e.keyCode == 27) // ESC
@@ -296,20 +247,57 @@ class MultiplayerMenu
     }
 
 
-  function realClose()
-    {
-      window.style.display = 'none';
-      bg.style.display = 'none';
-      close.style.display = 'none';
-      isVisible = false;
-    }
-
-
 // hide main menu
-  function onClose(event: Dynamic)
+  override function onCloseHook()
     {
-      realClose();
-
       ui.mainMenu.show();
     }
+
+
+  static var difElementInfo: Array<MPUIInfo> = [
+    {
+      name: 'numCults',
+      type: 'int',
+      value: '4',
+      title: 'Number of cults (2-8)',
+      params: null
+    },
+    {
+      name: 'numPlayers',
+      type: 'int',
+      value: '2',
+      title: 'Number of human players (2-8)',
+      params: null
+    },
+    {
+      name: 'difficulty',
+      type: 'select',
+      value: null,
+      title: 'Game difficulty',
+      params: [ 'Easy', 'Normal', 'Hard' ]
+    },
+    {
+      name: 'mapSize',
+      type: 'select',
+      value: null,
+      title: 'Map size',
+      params: [ 'Small', 'Medium', 'Large', 'Huge' ]
+    },
+    {
+      name: 'artifacts',
+      type: 'bool',
+      value: null,
+      title: 'Artifacts of the Arcane',
+      params: null,
+    },
+  ];
 }
+
+typedef MPUIInfo =
+{
+  var name: String; // element name (and parameter name too)
+  var type: String; // parameter type
+  var value: String; // default value
+  var title: String; // parameter title
+  var params: Dynamic; // additional parameters
+};

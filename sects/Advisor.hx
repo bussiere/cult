@@ -23,7 +23,8 @@ class Advisor
 
 
 // helper: find best sect for task
-  function findBestSectForTask(cult: Cult, id: String, taskVeryImportant: Bool): Sect
+  function findBestSectForTask(cult: Cult, id: String,
+      taskVeryImportant: Bool): Sect
     {
       // get task info
       var task = null;
@@ -84,6 +85,8 @@ class Advisor
           if (!cultHasSectOnTask(cult, 'invSearch'))
             {
               var s = findBestSectForTask(cult, 'invSearch', true);
+              if (s == null)
+                return;
               s.setTaskByID('invSearch');
               s.taskImportant = true;
             }
@@ -103,14 +106,35 @@ class Advisor
           return;
         }
 
+      // sabotage ritual (focus on one if multiple)
+      var ritualCult = null;
+      for (c in game.cults)
+        if (c != cult && c.isRitual && c.ritual.id == 'summoning')
+          {
+            ritualCult = c;
+            break;
+          }
+      if (ritualCult != null)
+        {
+          for (s in cult.sects)
+            if ((s.task == null || !s.taskImportant) &&
+                s.isAdvisor && s.level >= 1)
+              {
+                s.setTaskByID('cultSabotageRitual', ritualCult);
+                s.taskImportant = true;
+              }
+        }
+
       // check if all cults info is known
       for (c2 in game.cults)
         {
-          if (c2 == cult || !c2.isDiscovered[cult.id] || c2.isInfoKnown[cult.id])
+          if (c2 == cult ||
+              !c2.isDiscovered[cult.id] ||
+              c2.isInfoKnown[cult.id])
             continue;
 
           // check if some sect is on that task
-          if (cultHasSectOnTask(cult, 'cultGeneralInfo', c2))
+          if (cultHasSectOnTask(cult, 'cultGeneralInfo'))
             continue;
 
           // info unknown, set some sect on task
@@ -118,27 +142,24 @@ class Advisor
           if (s == null)
             break;
 //          trace('setTaskByID ' + c2.name);
-          s.setTaskByID('cultGeneralInfo', c2);
+          s.setTaskByID('cultGeneralInfo');
           s.taskImportant = true;
         }
 
+      // artifacts - find artifacts
+      if (game.flags.artifacts)
+        for (s in cult.sects)
+          if (s.level >= 1 && (s.task == null || !s.taskImportant) &&
+              s.isAdvisor)
+            {
+              s.setTaskByID('artSearch');
+              s.taskImportant = true;
+            }
+
+
       // default task - node info on random cult
-      // find appropriate cults
-      var temp = [];
-      for (c in game.cults)
-        if (c != cult && c.isDiscovered[cult.id] && !c.isDead)
-          temp.push(c.id);
-
-      // no cults available, do nothing
-      if (temp.length == 0)
-        return;
-
       for (s in cult.sects)
-        if (!s.taskImportant && s.isAdvisor)
-          {
-            // find random cult and set a task to it
-            var cultTarget = game.cults[temp[Std.random(temp.length)]];
-            s.setTaskByID('cultNodeInfo', cultTarget);
-          }
+        if ((s.task == null || !s.taskImportant) && s.isAdvisor)
+          s.setTaskByID('cultNodeInfo');
     }
 }

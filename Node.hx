@@ -1,6 +1,7 @@
 // node class
 
 import sects.Sect;
+import _SaveGame;
 
 class Node
 {
@@ -9,8 +10,13 @@ class Node
   public var uiNode: UINode;
 
   public var id: Int;
+  public var type: String;
   public var name: String; // node name
-  public var job: String; // RL job
+  public var nation: Int; // nationality
+  public var job: String; // job
+  public var gender: Bool; // false - male
+  public var jobID: Int;
+  public var imageID: Int;
   public var power: Array<Int>; // power to conquer: intimidation, persuasion, bribe
   public var powerGenerated: Array<Int>; // power generated each turn
   public var x: Int;
@@ -29,12 +35,18 @@ class Node
   public var lines: List<Line>; // lines drawn to this node
   public var links: List<Node>; // adjacent nodes buffer
 
+  // expansions
+  public var artifact: artifacts.CultArtifact;
+
 
   public function new(gvar, uivar, newx, newy, index: Int)
     {
       game = gvar;
       ui = uivar;
       id = index;
+      type = 'person';
+      nation = 0;
+      artifact = null;
       lines = new List<Line>();
       links = new List<Node>();
       visibility = [];
@@ -46,32 +58,57 @@ class Node
 
       owner = null;
 
-	  x = newx;
+      x = newx;
       y = newy;
-      centerX = x + Math.round(UI.markerWidth / 2);
-      centerY = y + Math.round(UI.markerHeight / 2);
+      centerX = x + Math.round(UI.vars.markerWidth / 2);
+      centerY = y + Math.round(UI.vars.markerHeight / 2);
       generateAttributes();
 
       uiNode = new UINode(game, ui, this);
     }
 
+// partial regen when conquered from another cult
+// leave same job
+// disbands sects
+  public function generateLite()
+    {
+      level = 0; // loses all levels
+      gender = (Std.random(2) == 0 ? false : true);
+      name = GenName.generate(gender, nation);
+      imageID = jobID * 2 + (gender ? 1 : 0);
+
+      // lower all power to 2 max
+      for (i in 0...Game.numPowers)
+        if (power[i] > 2)
+          power[i] = 2;
+      if (sect != null) // will already be removed in case of attack
+        owner.removeSect(this, 'investigator');
+      if (game.flags.artifacts)
+        owner.artifacts.onLose(this);
+      update();
+    }
 
 // generate new attributes
   public function generateAttributes()
     {
-      name = GenName.generate();
-      job = jobs[Std.int(Math.random() * (jobs.length - 1))];
-     
-	  isGenerator = false;
+      gender = (Std.random(2) == 0 ? false : true);
+      var nn = (gender ? GenName.namesFemale : GenName.namesMale);
+      nation = Std.random(nn.length);
+      name = GenName.generate(gender, nation);
+      jobID = Std.random(jobs.length);
+      imageID = jobID * 2 + (gender ? 1 : 0);
+      job = jobs[jobID];
+
+      isGenerator = false;
       isTempGenerator = false;
       isKnown = [];
       for (i in 0...game.difficulty.numCults)
         isKnown.push(false);
-      power = [0, 0, 0];
-	  powerGenerated = [0, 0, 0];
+      power = [0, 0, 0, 0];
+      powerGenerated = [0, 0, 0, 0];
       level = 0;
-	  var index: Int = Math.round((Game.numPowers - 1) * Math.random());
-	  power[index] = 1;
+      var index: Int = Math.round((Game.numPowers - 1) * Math.random());
+      power[index] = 1;
     }
 
 
@@ -101,84 +138,13 @@ class Node
     }
 
 
-// load node info from json-object
-  public function load(n:Dynamic)
-    {
-      power = n.p;
-      if (n.l != null)
-        level = n.l;
-      if (n.vis != null) // visibility
-        {
-          var vis:Array<Int> = n.vis;
-          visibility = [];
-          var i = 0;
-          for (v in vis)
-            {
-              visibility.push(v == 1 ? true : false);
-              if (v == 1)
-                uiNode.setVisible(game.cults[i], true);
-              i++;
-            }
-        }
-
-      if (n.o != null)
-        {
-          owner = game.cults[n.o];
-          owner.nodes.add(this);
-        }
-
-      if (n.pg != null)
-        {
-          isGenerator = true;
-          powerGenerated = n.pg;
-          
-          // update power mod cache
-          if (owner != null)
-            for (i in 0...Game.numPowers)
-              owner.powerMod[i] += Math.round(powerGenerated[i]);
-        }
-    }
-
-
-// dump node info for saving (skip everything that's default)
-  public function save(): Dynamic
-    {
-      var obj:Dynamic = {
-        id: id,
-//        nm: name,
-//        j: job,
-        p: power,
-        x: x,
-        y: y,
-        };
-      if (owner != null)
-        obj.o = owner.id;
-      if (level > 0)
-        obj.l = level;
-      var vis = [];
-      var savevis = false;
-      for (v in visibility)
-        {
-          vis.push(v ? 1 : 0);
-          if (v)
-            savevis = true;
-        }
-      if (savevis)
-        obj.vis = vis;
-      if (isGenerator)
-        obj.pg = powerGenerated;
-
-      return obj;
-    }
-
-
 // update node display
   public function update()
     {
       // update protected flag
       isProtected = false;
-	  if (isGenerator && owner != null)
-		{
+      if (isGenerator && owner != null)
+        {
           var cnt = 0;
           for (n in links)
             if (n.owner == owner)
@@ -195,17 +161,23 @@ class Node
 // calculate distance between this node and the other one
   public function distance(node: Node): Float
     {
-      return Math.sqrt((node.x - x) * (node.x - x) +
-        (node.y - y) * (node.y - y));
+      return Static.distance(x, y, node.x, node.y);
+    }
+
+
+// calculate distance between this node and the other one
+  public function distanceXY(xx: Int, yy: Int): Float
+    {
+      return Static.distance(x, y, xx, yy);
     }
 
 
 // set/unset generator flag
   public function setGenerator(isgen: Bool)
     {
-	  isGenerator = isgen;
+      isGenerator = isgen;
       update();
-	}
+    }
 
 
 // set owned flag
@@ -214,9 +186,9 @@ class Node
       var prevOwner = owner;
 
       // update power mod cache
-	  if (isGenerator)
-	    for (i in 0...Game.numPowers)
-		  c.powerMod[i] += Math.round(powerGenerated[i]);
+      if (isGenerator)
+        for (i in 0...Game.numPowers)
+          c.powerMod[i] += Math.round(powerGenerated[i]);
 
       // clear lines leading to this node
       clearLines();
@@ -244,8 +216,8 @@ class Node
 
       // raise public awareness for new owner
       if (isGenerator)
-        owner.awareness += 2;
-      else owner.awareness++;
+        owner.awarenessBase += 2;
+      else owner.awarenessBase++;
 
       if (!owner.isAI)
         ui.updateStatus();
@@ -284,7 +256,7 @@ class Node
 
       // update display
       for (n in links)
-        n.update();  
+        n.update();
 
       // lower all power to 2 max
       for (i in 0...Game.numPowers)
@@ -358,7 +330,7 @@ class Node
             n.setVisible(cult, vis);
 //            n.update();
           }
-  
+
       // update visibility of this node for that cult
       var hasLinks = false;
       for (n2 in links)
@@ -377,12 +349,12 @@ class Node
 // paint links from adjacent nodes owned by node owner to this one
   public function paintLines()
     {
-	  // create lines between this node and adjacent ones
+      // create lines between this node and adjacent ones
       var hasLine = false;
       for (n in links)
         if (n.owner == this.owner)
           {
-            var l = Line.create(ui.map, this.owner, n, this);
+            var l = Line.create(ui, this.owner, n, this);
             game.lines.add(l);
             n.lines.add(l);
             this.lines.add(l);
@@ -408,7 +380,7 @@ class Node
             nc = n;
           }
 
-      var l = Line.create(ui.map, this.owner, nc, this);
+      var l = Line.create(ui, this.owner, nc, this);
       game.lines.add(l);
       nc.lines.add(l);
       this.lines.add(l);
@@ -417,6 +389,19 @@ class Node
       for (c in game.cults)
         if (nc.isVisible(c) || this.isVisible(c))
           l.setVisible(c, true);
+    }
+
+
+// update links from this node to others
+  public function updateLinks()
+    {
+      for (n2 in game.nodes)
+        if (this != n2 &&
+            this.distance(n2) <= game.difficulty.nodeActivationRadius)
+          {
+            this.links.remove(n2);
+            this.links.add(n2);
+          }
     }
 
 
@@ -443,15 +428,101 @@ class Node
         }
     }
 
+  public function turn()
+    {}
 
-  static var jobs: Array<String> = 
-    [
-      "Government official",
-      "Corporate worker",
-      "University professor",
-      "Army officer",
-      "Scientist",
-      "Politician",
-      "Media Person"
-    ];
+// dump node info for saving (skip everything that's default)
+  public function save(): _SaveNode
+    {
+      var obj: _SaveNode = {
+        id: id,
+        type: type,
+        name: name,
+        nation: nation,
+        job: job,
+        gender: gender,
+        jobID: jobID,
+        imageID: imageID,
+        power: power,
+        x: x,
+        y: y,
+        centerX: centerX,
+        centerY: centerY,
+        vis: visibility,
+        isKnown: isKnown, 
+        isTempGenerator: isTempGenerator,
+        isProtected: isProtected,
+        level: level,
+        owner: (owner != null ? owner.id : -1),
+        // NOTE: sect link is restored in Sect.hx
+        artifact: -1,
+      };
+      if (isGenerator)
+        obj.powerGenerated = powerGenerated;
+      if (artifact != null)
+        for (idx in 0...owner.artifacts.list().length)
+          if (artifact == owner.artifacts.list()[idx])
+            {
+              obj.artifact = idx;
+              break;
+            }
+
+      return obj;
+    }
+
+// load node info from json-object
+  public function load(n: _SaveNode)
+    {
+      type = n.type;
+      name = n.name;
+      nation = n.nation;
+      job = n.job;
+      gender = n.gender;
+      jobID = n.jobID;
+      imageID = n.imageID;
+      power = n.power;
+      centerX = n.centerX;
+      centerY = n.centerY;
+      visibility = n.vis;
+      for (i in 0...n.vis.length)
+        if (n.vis[i])
+          uiNode.setVisible(game.cults[i], true);
+      isKnown = n.isKnown;
+      isTempGenerator = n.isTempGenerator;
+      isProtected = n.isProtected;
+      level = n.level;
+      if (n.owner >= 0)
+        {
+          owner = game.cults[n.owner];
+          owner.nodes.add(this);
+        }
+      if (n.powerGenerated != null)
+        {
+          isGenerator = true;
+          powerGenerated = n.powerGenerated;
+
+          // update power mod cache
+          if (owner != null)
+            for (i in 0...Game.numFullPowers)
+              owner.powerMod[i] += Math.round(powerGenerated[i]);
+        }
+      if (n.artifact >= 0)
+        artifact = owner.artifacts.list()[n.artifact];
+    }
+
+  public function toString()
+    {
+      return '(' + x + ',' + y + ')';
+    }
+
+
+  static var jobs = [
+    "Government official",
+    "Corporate worker",
+    "University professor",
+    "Army officer",
+    "Scientist",
+    "Politician",
+    "Media person"
+  ];
 }

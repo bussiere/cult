@@ -1,4 +1,5 @@
 // cult investigator class
+import _SaveGame;
 
 class Investigator
 {
@@ -8,6 +9,7 @@ class Investigator
   var numTurn: Int;
 
   public var name: String;
+  public var gender: Bool; // false - male
   public var will: Int; // willpower
   public var level: Int; // investigator level
   public var isHidden: Bool; // is hidden?
@@ -17,7 +19,8 @@ class Investigator
       cult = c;
       this.ui = ui;
       this.game = g;
-      name = GenName.generate();
+      gender = (Std.random(2) == 0 ? false : true);
+      name = GenName.generate(gender, -1);
       numTurn = 0;
       isHidden = true;
 
@@ -32,29 +35,6 @@ class Investigator
         level = 2;
     }
 
-
-// load info
-  public function load(obj: Dynamic)
-    {
-      name = obj.n;
-      will = obj.w;
-      level = obj.l;
-      isHidden = (obj.h == 1 ? true : false);
-    }
-
-
-// save info
-  public function save(): Dynamic
-    {
-      return {
-        n: name,
-        w: will,
-        l: level,
-        h: (isHidden ? 1 : 0)
-        };
-    }
-
-
 // investigator's turn
   public function turn()
     {
@@ -67,11 +47,14 @@ class Investigator
 
       // hidden for X turns after appearance
       var turnVisible = cult.difficulty.investigatorTurnVisible;
-      if (cult.isAI && turnVisible > 0) // AI always find out on the 2rd turn
+      // AI always finds out on the 2rd turn
+      if (cult.isAI && turnVisible > 0)
         turnVisible = 2;
       if (isHidden && numTurn > turnVisible)
         {
-          ui.log2(cult, cult.fullName + " has found out the investigator's location.", { symbol: 'I' });
+          ui.log2(cult, cult.fullName +
+            " has found out the investigator's location.",
+            { symbol: 'I' });
           isHidden = false;
         }
       if (will >= 9) // becomes hidden again on gaining enough willpower
@@ -83,7 +66,7 @@ class Investigator
       for (i in 0...(level + 1))
         killFollower();
 
-      // low awareness and no ritual, investigator cannot find out about members
+      // low awareness and no ritual, investigator does not gain willpower
       if (cult.awareness < 5 && !cult.isRitual)
         return;
 
@@ -107,7 +90,7 @@ class Investigator
       level = Std.int(will / 3);
       if (level > 2)
         level = 2;
-      
+
       if (level > oldLevel && !cult.isAI)
         ui.log2(cult, "The investigator of " + cult.fullName +
           " has gained level " + (level + 1) + ".", { symbol: 'I' });
@@ -135,7 +118,7 @@ class Investigator
             node = n;
           }
       else
-      // get random follower
+        // get random follower
         for (n in cult.nodes)
           {
             if (n.level > level || n.isProtected)
@@ -148,19 +131,37 @@ class Investigator
           }
       if (node == null)
         return;
-      if (node == cult.origin && Math.random() > 0.3) // rarely attacks origin in any case
+      // rarely attacks origin in any case
+      if (node == cult.origin && Math.random() > 0.3)
         return;
 
-      ui.log2(cult, "The investigator revealed the " + cult.fullName + " follower.", { symbol: 'I' });
+      ui.log2(cult, "The investigator revealed the " + cult.fullName +
+        " follower.", { symbol: 'I' });
       if (node.sect != null) // destroy sect
-        cult.removeSect(node);
+        cult.removeSect(node, 'investigator');
       node.generateAttributes(); // regen node
       node.removeOwner(); // clean ownership
+      if (!cult.isAI)
+        game.tutorial.play('investigatorKillNode');
 
       // highlight node
       for (c in game.cults)
         if (node.isVisible(c))
           c.highlightNode(node);
+    }
+
+
+// lower willpower with adept or sect
+  public function lowerWillpower(val: Int)
+    {
+      will -= val;
+      if (will > 0)
+        return;
+
+      // kill investigator
+      ui.log2(cult, "The investigator of the " + cult.fullName +
+        " has disappeared.", { symbol: 'I' });
+      cult.killInvestigator();
     }
 
 
@@ -183,7 +184,7 @@ class Investigator
         }
       if (chance < 20)
         chance = 20;
-  
+
       return chance;
     }
 
@@ -195,7 +196,7 @@ class Investigator
       if (cult.awareness <= 5)
         chance = Std.int(20 * cult.difficulty.investigatorKill);
       else if (cult.awareness <= 10)
-        chance = Std.int(65 * cult.difficulty.investigatorKill);
+        chance = Std.int(50 * cult.difficulty.investigatorKill);
       else chance = Std.int(70 * cult.difficulty.investigatorKill);
 
       for (sect in cult.sects) // decrease chance with each sect
@@ -214,5 +215,25 @@ class Investigator
         chance = 5;
 
       return chance;
+    }
+
+// save info
+  public function save(): _SaveInvestigator
+    {
+      return {
+        name: name,
+        will: will,
+        level: level,
+        isHidden: isHidden,
+      };
+    }
+
+// load info
+  public function load(obj: _SaveInvestigator)
+    {
+      name = obj.name;
+      will = obj.will;
+      level = obj.level;
+      isHidden = obj.isHidden;
     }
 }

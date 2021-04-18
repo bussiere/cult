@@ -1,37 +1,38 @@
 // status block
 
-import js.Lib;
+import js.Browser;
+import js.html.DivElement;
 
 class Status
 {
   var ui: UI;
   var game: Game;
 
-  var status: Dynamic; // element 
+  var status: DivElement;
+  var statusBorder: DivElement;
+  var statusUpgrade: Array<DivElement>;
+  var statusRitualUnveiling: DivElement;
 
   public function new(uivar: UI, gvar: Game)
     {
       ui = uivar;
       game = gvar;
 
-	  // status screen
-      status = UI.e("status");
-      status.style.border = 'double #777 4px';
-      status.style.width = 191;
-      status.style.height = UI.mapHeight + UI.topHeight - 10;
-      status.style.position = 'absolute';
-      status.style.left = 5;
-      status.style.top = 5;
-      status.style.padding = 5;
-      status.style.fontSize = '12px';
-      status.style.overflow = 'hidden';
+      // status screen
+      statusBorder = cast UI.e("statusBorder");
+      status = cast UI.e("status");
 
-      var s = "<div id='status.cult' style='padding:0 5 5 5; background: #111; height: 17; " +
-        "font-weight: bold; font-size:15px; text-align:center;'>-</div>";
+      var s = '';
+      s += '<div id=statusBG><div id=statusFG>';
+      s += "<div id='status.cult'>-</div>";
 
       s += "<fieldset>";
       s += "<legend>FOLLOWERS</legend>";
-      s += "<table width=100% cellpadding=0 cellspacing=2 style='font-size:14px'>";
+
+      // unveiling ritual button
+      s += "<div class='uiButton statusConvert statusUpgrade' id='status-ritual-unveiling'>U</div>";
+
+      s += "<table class=statusTable cellpadding=0>";
 
       // followers
       for (i in 0...Game.followerNames.length)
@@ -40,141 +41,167 @@ class Status
             Game.followerNames[i] + "s";
 
           // icon
-	      s += "<td><div id='status.upgrade" + i + "' " +
-		    "style='cursor: pointer; width:12; height:12; " +
-		    "background:#222; border:1px solid #777; " +
-            "color:lightgreen; " +
-            (i < Game.followerNames.length - 1 ? "" : 
-              "text-decoration:blink; ") +
-		    "text-align:center; font-size: 10px; font-weight: bold; '>";
+          s += "<td><div class='uiButton statusConvert statusUpgrade' id='status.upgrade" + i + "'>";
           if (i < Game.followerNames.length - 1)
             s += "+";
           else s += "!";
           s += "</div>";
 
           // number
-          s += "<td><span id='status.followers" + i +
-          "' style='font-weight:bold;'>0</span>";
+          s += "<td><span class='statusNumber' id='status.followers" + i +
+          "'>0</span>";
         }
-
       s += "</table></fieldset>";
 
-      s += "<fieldset><legend" +
-        " style='padding:0 5 0 5;'>RESOURCES</legend>" +
-        "<table width=100% cellpadding=0 cellspacing=0 style='font-size:14px'>";
+      s += "<fieldset><legend>RESOURCES</legend>" +
+        '<table class=statusTable cellpadding=0';
+      s += (UI.modernMode ? '>' : " cellspacing=0>");
       for (i in 0...(Game.numPowers + 1))
-	    {
+        {
           s += "<tr style='";
-          if (i % 2 == 1)
+          if (UI.classicMode && i % 2 == 1)
             s += "background:#101010";
-          s += "'><td>" + 
-	  	  // icon
-		    "<div id='status.powerMark" + i + "' style='width:" + UI.markerWidth +
-		    "; height: " + UI.markerHeight +
-            "; font-size: 12px; " +
-		    "; background:#222; border:1px solid #777; color: " +
-            UI.powerColors[i] + ";'>" + 
-		    "<center><b>" + Game.powerShortNames[i] +
-		    "</b></center></div>" +
-		  // name
-            "<td><b id='status.powerName" + i + "' " + UI.powerName(i) + "</b>" +
-		  // level
-		    "<td><td><span id='status.power" +
-		    i + "'>0</span><br>" +
+          s += "'><td>";
+          // icon
+          if (UI.classicMode)
+            {
+              s += "<div class='status.powerMark' id='status.powerMark" + i + "' style='color: var(--power-color-" + i + ");'>" +
+                Game.powerShortNames[i] + "</div>";
+            }
+          else s += "<img width=20 height=20 src='./data/power-" +
+            Game.powerNames[i].toLowerCase() + "-status.png'>";
+          // name
+          s += "<td><span class=powerText id='status.powerName" + i + "'>" + UI.powerName(i) + "</span>" +
+
+            // level
+            "<td><td><span id='status.power" +
+            i + "'>0</span><br>" +
             "<span style='font-size:10px' id='status.powerMod" + i +
             "'>0</span>";
 
-		  // convert buttons
-	  	  s += "<tr style='";
-          if (i % 2 == 1)
+          // convert buttons
+          s += "<tr style='";
+          if (UI.classicMode && i % 2 == 1)
             s += "background:#101010";
-          s += "'><td colspan=4><table style='font-size:11px'>" +
+          s += "'><td colspan=4><table class=statusResourceTable>" +
             "<tr><td width=20 halign=right>To";
-	  	  for (ii in 0...Game.numPowers)
-			if (ii != i)
-	      	  s += "<td><div id='status.convert" + i + ii + "' " +
-			    "style='cursor: pointer; width:12; height:12; " +
-		        "background:#222; border:1px solid #777; " +
-                "color:" + UI.powerColors[ii] + "; " +
-		    	"text-align:center; font-size: 10px; font-weight: bold; '>" +
-		        Game.powerShortNames[ii] + "</div>";
+          for (ii in 0...Game.numPowers)
+            if (ii != i)
+              s += "<td><div class='uiButton statusConvert' id='status.convert" + i + ii + "' " +
+                "style='color: var(--power-color-" + ii + "); visibility: hidden;'>" +
+                Game.powerShortNames[ii] + "</div>";
 
           // not for virgins
           if (i != 3)
             {
-	          s += "<td><div id='status.lowerAwareness" + i + "' " +
-			    "style='cursor: pointer; width:12; height:12; " +
-		        "background:#222; border:1px solid #777; " +
-                "color:" + UI.colAwareness + "; " +
-		        "text-align:center; font-size: 10px; font-weight: bold; '>A</div>";
-	          s += "<td halign=right><div id='status.lowerWillpower" + i + "' " +
-			    "style='cursor: pointer; width:12; height:12; " +
-		        "background:#222; border:1px solid #777; " +
-                "color:" + UI.colWillpower + "; " +
-		        "text-align:center; font-size: 10px; font-weight: bold; '>W</div>";
+              s += "<td><div class='uiButton statusConvert' id='status.lowerAwareness" + i + "' " +
+                "style='color:var(--awareness-color); visibility: hidden;'>A</div>";
+              s += "<td halign=right>" +
+                "<div class='uiButton statusConvert' id='status.lowerWillpower" + i + "' " +
+                "style='color:var(--willpower-color); visibility: hidden;'>W</div>";
             }
           s += "</table>";
-		}
+        }
       s += "</table></fieldset>";
 
       s += "<fieldset>";
       s += "<legend>STATS</legend>";
-      s += "<table cellpadding=0 cellspacing=2 width=100% style='font-size:14px'>";
+      s += "<table class=statusTable cellpadding=0>";
 
       // awareness
-	  s += "<tr id='status.awRow' title='" + tipAwareness +
-        "'><td>Awareness<td><span id='status.awareness' " +
-		"style='font-weight:bold'>0</span>";
+      s += "<tr id='status.awRow' title='" + tipAwareness() +
+        "'><td>Awareness<td><span id='status.awareness'>0</span>";
       // turns
-	  s += "<tr id='status.tuRow' title='" + tipTurns +
-        "'><td>Turns<td><span id='status.turns' " +
-		"style='font-weight:bold'>0</span>";
+      s += "<tr id='status.tuRow' title='" + tipTurns +
+        "'><td>Turns<td><span id='status.turns'>0</span>";
 
       s += "</table></fieldset>";
 
-	  s += "<center style='padding:15 0 2 0'>";
+      s += "<center style='padding:15 0 2 0'>";
 
       // buttons
       s += "<span title='" + tipEndTurn +
-        "' id='status.endTurn' class=button>END TURN</span> ";
+        "' id='status.endTurn' class='uiButton statusButton'>END TURN</span> ";
       s += "</center>";
 
       // music player
       s += "<fieldset id='musicplayer'>";
       s += "<legend>MUSIC</legend>";
-      s += "<div title='Click to go to album page.' id='status.track' " + 
-        "style='text-align: center; background: #222; cursor:pointer; font-size:10px; color: #00ff00'>-<br>-<br>-</div>";
-      s += "<center style='padding-top:0px'>";
-      s += "<span class=button2 title='Play' id='status.play'>PLAY</span>&nbsp;&nbsp;";
-      s += "<span class=button2 title='Pause' id='status.pause'>PAUSE</span>&nbsp;&nbsp;";
-      s += "<span class=button2 title='Stop' id='status.stop'>STOP</span>&nbsp;&nbsp;";
-      s += "<span class=button2 title='Random track' id='status.random'>RANDOM</span>";
+      s += "<div id='status.track'>-<br>-<br>-</div>";
+      s += "<center style='padding-top:2px'>";
+      s += "<span class='uiButton statusButton musicButton2' title='Play' id='status.play'>PLAY</span>&nbsp;&nbsp;";
+      s += "<span class='uiButton statusButton musicButton2' title='Pause' id='status.pause'>PAUSE</span>&nbsp;&nbsp;";
+      s += "<span class='uiButton statusButton musicButton2' title='Stop' id='status.stop'>STOP</span>&nbsp;&nbsp;";
+      s += "<span class='uiButton statusButton musicButton2' title='Random track' id='status.random'>RANDOM</span>";
       s += "</center></fieldset>";
 
       // buttons 2
-      s += "<center style='padding-top:12px;'><span class=button title='" + tipMainMenu +
+      s += "<center style='padding-top:12px;'><span class='uiButton statusButton' title='" + tipMainMenu +
         "' id='status.mainMenu'>MAIN MENU</span></center>";
-      
+      if (Game.isDebug)
+        s += '<div id=status.debug></div>';
+      s += '</div></div>';
+
       status.innerHTML = s;
 
-	  // setting events and tooltips
-	  for (i in 0...Game.followerNames.length)
+      var player: DivElement = cast UI.e('musicplayer');
+      var b = Tools.button({
+        id: 'status.musicPlus',
+        text: '+',
+        className: 'uiButton statusButton musicButton',
+        w: null,
+        h: null,
+        x: null,
+        y: null,
+        container: player,
+        title: "Click to increase music volume.",
+        func: function (ev: Dynamic)
+          {
+            ui.music.increaseVolume();
+          }
+        });
+      b.style.position = null;
+      var b = Tools.button({
+        id: 'status.musicMinus',
+        text: '-',
+        className: 'uiButton statusButton musicButton',
+        w: null,
+        h: null,
+        x: null,
+        y: null,
+        container: player,
+        title: "Click to decrease music volume.",
+        func: function (ev: Dynamic)
+          {
+            ui.music.decreaseVolume();
+          }
+        });
+      b.style.position = null;
+
+      // setting events and tooltips
+      statusUpgrade = [];
+      for (i in 0...Game.followerNames.length)
         {
           e("status.follower" + i).title = tipFollowers[i];
-          var c = e("status.upgrade" + i);
+          statusUpgrade.push(cast e("status.upgrade" + i));
+          var c = statusUpgrade[i];
           c.onclick = onUpgrade;
           c.title = tipUpgrade[i];
-          c.style.visibility = 'hidden';
         }
-	  for (i in 0...(Game.numPowers + 1))
+      statusRitualUnveiling = cast e('status-ritual-unveiling');
+      statusRitualUnveiling.onclick = onRitual;
+      for (i in 0...(Game.numPowers + 1))
         {
-          e("status.powerMark" + i).title = tipPowers[i];
-          e("status.powerName" + i).title = tipPowers[i];
+          if (UI.classicMode)
+            {
+              e("status.powerMark" + i).title = tipPowers[i];
+              e("status.powerName" + i).title = tipPowers[i];
+            }
           for (ii in 0...Game.numPowers)
-		    if (i != ii)
+            if (i != ii)
               {
                 var c = e("status.convert" + i + ii);
-		        c.onclick = onConvert;
+                c.onclick = onConvert;
                 c.title = tipConvert + UI.powerName(ii) + ": " +
                   Game.powerConversionCost[i];
               }
@@ -182,20 +209,19 @@ class Status
           if (i != 3)
             {
               var c = e("status.lowerAwareness" + i);
-		      c.onclick = onLowerAwareness;
+              c.onclick = onLowerAwareness;
               c.title = tipLowerAwareness;
               var c = e("status.lowerWillpower" + i);
-		      c.onclick = onLowerWillpower;
+              c.onclick = onLowerWillpower;
               c.title = tipLowerWillpower + Game.willPowerCost;
             }
         }
-	  e("status.endTurn").onclick = onEndTurn;
-	  e("status.mainMenu").onclick = onMainMenu;
+      e("status.endTurn").onclick = onEndTurn;
+      e("status.mainMenu").onclick = onMainMenu;
       e("status.play").onclick = onPlay;
       e("status.pause").onclick = onPause;
       e("status.stop").onclick = onStop;
       e("status.random").onclick = onRandom;
-      e("status.track").onclick = onTrack;
       new JQuery('#status *').tooltip({ delay: 0 });
     }
 
@@ -224,19 +250,13 @@ class Status
     }
 
 
-  public function onTrack(event)
-    {
-      Lib.window.open(ui.music.getPage(), '');
-    }
-
-
 // try to lower awareness
   public function onLowerAwareness(event: Dynamic)
     {
       if (game.isFinished)
         return;
 
-	  var power = Std.parseInt(Tools.getTarget(event).id.substr(21, 1));
+      var power = Std.parseInt(Tools.getTarget(event).id.substr(21, 1));
       game.player.lowerAwareness(power);
     }
 
@@ -247,7 +267,7 @@ class Status
       if (game.isFinished)
         return;
 
-	  var power = Std.parseInt(Tools.getTarget(event).id.substr(21, 1));
+      var power = Std.parseInt(Tools.getTarget(event).id.substr(21, 1));
       game.player.lowerWillpower(power);
     }
 
@@ -258,9 +278,19 @@ class Status
       if (game.isFinished)
         return;
 
-	  var lvl = Std.parseInt(Tools.getTarget(event).id.substr(14, 1));
+      var lvl = Std.parseInt(Tools.getTarget(event).id.substr(14, 1));
+      game.player.upgrade(lvl);
+    }
 
-	  game.player.upgrade(lvl);
+
+// ritual button
+  function onRitual(event: Dynamic)
+    {
+      if (game.isFinished)
+        return;
+
+      var id = Tools.getTarget(event).id.substr(14);
+      game.player.startRitual(id);
     }
 
 
@@ -270,11 +300,11 @@ class Status
       if (game.isFinished)
         return;
 
-	  var from = Std.parseInt(Tools.getTarget(event).id.substr(14, 1));
-	  var to = Std.parseInt(Tools.getTarget(event).id.substr(15, 1));
+      var from = Std.parseInt(Tools.getTarget(event).id.substr(14, 1));
+      var to = Std.parseInt(Tools.getTarget(event).id.substr(15, 1));
 
-	  game.player.convert(from, to);
-	}
+      game.player.convert(from, to);
+    }
 
 
 // end turn button
@@ -290,8 +320,11 @@ class Status
       for (m in game.player.logPanelMessages)
         m.old = true;
 
-	  game.endTurn();
-	}
+      // clear messages for this turn
+      game.player.logMessagesTurn = '';
+
+      game.endTurn();
+    }
 
 
 // main menu button
@@ -319,12 +352,13 @@ class Status
   public function update()
     {
       e("status.cult").innerHTML = game.player.fullName;
+      updateTip('status.awRow', tipAwareness());
 
       // update tooltips
-	  for (i in 0...(Game.numPowers + 1))
+      for (i in 0...(Game.numPowers + 1))
         {
-          var s = tipPowers[i] + 
-            "<br>Chance to gain each unit: <span style='color:white'>" +
+          var s = tipPowers[i] +
+            "<br>Chance to gain each unit: <span class=shadow style='color:white'>" +
             game.player.getResourceChance() + "%</span>";
           updateTip("status.powerMark" + i, s);
           updateTip("status.powerName" + i, s);
@@ -333,23 +367,26 @@ class Status
         {
           updateTip("status.follower" + i, tipFollowers[i]);
           updateTip("status.upgrade" + i, tipUpgrade[i] +
-            "<br>Chance of success: <span style='color:white'>" +
+            ((game.flags.artifacts && i == 1) ?
+             ' You also need an artifact.' : '') +
+            "<br>Chance of success: <span class=shadow style='color:white'>" +
             game.player.getUpgradeChance(i) + "%</span>");
         }
       updateTip("status.followers1",
-        (game.player.adeptsUsed > game.player.adepts ? 
+        (game.player.adeptsUsed > game.player.adepts ?
           game.player.adepts : game.player.adeptsUsed) +
         " used of " + game.player.adepts);
 
       // convert buttons
-	  for (i in 0...(Game.numPowers + 1))
+      for (i in 0...(Game.numPowers + 1))
         for (ii in 0...Game.numPowers)
           {
             if (i == ii) continue;
 
             var c = e("status.convert" + i + ii);
-            c.style.visibility = 
-              (game.player.power[i] >= Game.powerConversionCost[i] ?
+            c.style.visibility =
+              ((game.player.power[i] >= Game.powerConversionCost[i] &&
+                !game.isFinished) ?
                'visible' : 'hidden');
           }
 
@@ -363,32 +400,68 @@ class Status
               var adepts = game.player.adepts - game.player.adeptsUsed;
               if (adepts < 0)
                 adepts = 0;
-              s = "<span style='color:#55dd55'>" + adepts + "</span>";
+              s = '' + adepts;
+
+//              s = "<span style='color:var(--adepts-color)'>" + adepts + "</span>";
             }
-          e("status.followers" + i).innerHTML = s; 
+          var el = e("status.followers" + i);
+          el.innerHTML = s;
+          if (i == 1 && game.player.adepts > 0)
+            {
+              el.style.color = 'var(--adepts-color)';
+              el.className = 'shadow statusNumber';
+            }
+          else
+            {
+              el.style.color = 'var(--text-color)';
+              el.className = 'statusNumber';
+            }
         }
 
       // update powers
-	  for (i in 0...(Game.numPowers + 1))
-	    {
-          e("status.power" + i).innerHTML = 
+      for (i in 0...(Game.numPowers + 1))
+        {
+          e("status.power" + i).innerHTML =
             "<b>" + game.player.power[i] + "</b>";
-          if (i == 3)
-            e("status.powerMod3").innerHTML = " +0-" +
-              game.player.maxVirgins();
-		  else 
-		    e("status.powerMod" + i).innerHTML =
-              " +0-" + game.player.powerMod[i];
-		}
+          if (i == 3) // virgins
+            {
+              var t = ' +0';
+              if (game.player.maxVirgins() > 0)
+                t += '-' +
+                  (game.player.maxVirgins() + game.player.powerMod[i]);
+              e("status.powerMod3").innerHTML = t;
+            }
+          else
+            {
+              var t = ' +0';
+              if (game.player.powerMod[i] > 0)
+                t = ' +0-' + game.player.powerMod[i];
+              e("status.powerMod" + i).innerHTML = t;
+            }
+        }
 
-	  e("status.turns").innerHTML = "" + game.turns;
-	  e("status.awareness").innerHTML = "" + game.player.awareness + "%";
- 
+      e("status.turns").innerHTML = "" + game.turns;
+
+      // awareness counter
+      var aw = e("status.awareness");
+      aw.innerHTML = "" + game.player.awareness + "%";
+      var col = 0;
+      if (game.player.awareness >= 20)
+        col = 2;
+      else if (game.player.awareness >= 10)
+        col = 1;
+      if (UI.modernMode)
+        aw.style.background = 'var(--awareness-text-color-' + col + ')';
+      else aw.style.color = 'var(--awareness-text-color-' + col + ')';
+      aw.className = (col > 0 ? 'blinking' : '');
+
       // lower awareness buttons visibility
       for (i in 0...Game.numPowers)
         e("status.lowerAwareness" + i).style.visibility = 'hidden';
-      if (game.player.adeptsUsed < game.player.adepts &&
-          game.player.adepts > 0 && game.player.awareness > 0)
+      if (!game.isFinished &&
+          game.player.adeptsUsed < game.player.adepts &&
+          game.player.adepts > 0 &&
+          game.player.awarenessBase > 0)
         for (i in 0...Game.numPowers)
           if (game.player.power[i] > 0)
             e("status.lowerAwareness" + i).style.visibility = 'visible';
@@ -396,26 +469,43 @@ class Status
       // lower willpower buttons visibility
       for (i in 0...Game.numPowers)
         e("status.lowerWillpower" + i).style.visibility = 'hidden';
-      if (game.player.hasInvestigator && !game.player.investigator.isHidden &&
-          game.player.adeptsUsed < game.player.adepts && game.player.adepts > 0)
+      if (!game.isFinished &&
+          game.player.hasInvestigator &&
+          !game.player.investigator.isHidden &&
+          game.player.adeptsUsed < game.player.adepts &&
+          game.player.adepts > 0)
         for (i in 0...Game.numPowers)
           if (game.player.power[i] >= Game.willPowerCost)
             e("status.lowerWillpower" + i).style.visibility = 'visible';
 
       // upgrade buttons visibility
       for (i in 0...Game.followerNames.length)
-        e("status.upgrade" + i).style.visibility =
-          (game.player.canUpgrade(i) ? 'visible' : 'hidden');
+        statusUpgrade[i].className =
+          (game.player.canUpgrade(i) ?
+           'uiButton statusConvert statusUpgrade' :
+           'uiButtonDisabled statusConvert statusUpgrade');
+      statusRitualUnveiling.className =
+        (game.player.canStartRitual('unveiling') ?
+         'uiButton statusConvert statusUpgrade' :
+         'uiButtonDisabled statusConvert statusUpgrade');
+      e("status.endTurn").style.visibility =
+        (!game.isFinished ? 'visible' : 'hidden');
 
       updateTip("status.follower2",
-        "3 priests and " + game.difficulty.numSummonVirgins + 
-          " virgins are needed to summon the Elder God.");
+        Static.rituals['summoning'].priests + " priests and " +
+        game.difficulty.numSummonVirgins +
+        " virgins are needed to summon the Elder God.");
       updateTip("status.upgrade2",
-        "To perform the " + Static.rituals[0].name +
-        " you need " + Game.upgradeCost +
+        "To perform the " + Static.rituals['summoning'].name +
+        " you need " + Static.rituals['summoning'].priests +
         " priests and " + game.difficulty.numSummonVirgins + " virgins.<br>" +
         "<li>The more society is aware of the cult the harder it is to " +
         "summon Elder God.");
+      updateTip('status-ritual-unveiling',
+        Static.rituals['unveiling'].note);
+
+      if (Game.isDebug)
+        e('status.debug').innerHTML = ui.info.getDebugInfo(game.player, true);
     }
 
 
@@ -429,43 +519,66 @@ class Status
 // get element shortcut
   public static inline function e(s)
     {
-	  return Lib.document.getElementById(s);
-	}
+      return Browser.document.getElementById(s);
+    }
 
 
 // ===================== tips ===============
 
-  static var tipPowers: Array<String> =
-    [ UI.powerName(0) + " is needed to gain new followers.",
-      UI.powerName(1) + " is needed to gain new followers.",
-      UI.powerName(2) + " is needed to gain new followers.", 
-      UI.powerName(3) + " are gathered by your neophytes.<br>" +
-      "They are needed for rituals to upgrade your<br>followers " +
-      "and also for the final ritual of summoning." ];
+  static var tipPowers: Array<String> = [
+    UI.powerName(0) + " is needed to gain new followers.",
+    UI.powerName(1) + " is needed to gain new followers.",
+    UI.powerName(2) + " is needed to gain new followers.",
+    UI.powerName(3) + " are gathered by your neophytes.<br>" +
+    "They are needed for rituals to upgrade your<br>followers " +
+    "and also for the final ritual of summoning."
+  ];
   static var tipConvert = "Cost to convert to ";
-  static var tipUpgrade: Array<String> =
-    [ "To gain an adept you need " + Game.upgradeCost +
-      " neophytes and 1 virgin.",
-      "To gain a priest you need " + Game.upgradeCost +
-      " adepts and 2 virgins.",
-      '',
-      ];
-  static var tipFollowers: Array<String> =
-    [ "Neophytes can find some virgins if they're lucky.",
-      "Adepts can lower society awareness and investigator's willpower.",
-      ''
-      ];
+  static var tipUpgrade: Array<String> = [
+    "To gain an adept you need " + Game.upgradeCost +
+    " neophytes and 1 virgin.",
+    "To gain a priest you need " + Game.upgradeCost +
+    " adepts and 2 virgins.",
+    '',
+  ];
+  static var tipFollowers: Array<String> = [
+    "Neophytes can find some virgins if they're lucky.",
+    "Adepts can lower society awareness and investigator's willpower.",
+    ''
+  ];
   static var tipTurns = "Shows the number of turns passed from the start.";
-  static var tipAwareness =
+  static var tipAwarenessBasic =
     "Shows how much human society is aware of the cult.<br>" +
-    "<li>The greater awareness is the harder it is to do anything:<br>" +
-    "gain new followers, resources or make rituals.<br> " +
-    "<li>Adepts can lower the society awareness using resources.<br>" +
-    "<li>The more adepts you have the more you can lower awareness each turn.";
+    "<li>Higher awareness makes it harder to do anything:" +
+    "gain new followers, resources or perform rituals." +
+    "<li>Adepts can lower the society awareness using resources." +
+    "<li>The more adepts you have the more you can lower awareness each turn." +
+    "<li>With very low awareness the cult can stay undetected by an investigator.";
+  static var tipAwarenessDevoted = '<li>Each devoted sect adds to the base cult awareness each turn.';
+  function tipAwareness(): String
+    {
+      var str = tipAwarenessBasic;
+      var bonuses = new StringBuf();
+
+      // DEVOTED: bonus to mod
+      var bonus = 0;
+      if (game.flags.devoted)
+        {
+          str += tipAwarenessDevoted;
+          for (s in game.player.sects)
+            if (s.isDevoted)
+              bonus += Const.devotedAwarenessBonus[s.level];
+          if (bonus > 0)
+            bonuses.add("<li><span class=shadow style='color:var(--node-error-color)'>(+" + bonus + "% from devoted sects)</span>");
+        }
+      if (bonuses.length > 0)
+        str += '</li>Bonuses:<br>' + bonuses.toString() + '</li>';
+      return str;
+    }
   static var tipLowerAwareness =
     "Your adepts can use resources to lower society awareness.";
   static var tipLowerWillpower =
     "Your adepts can use resources to lower willpower of an investigator.<br>Cost: ";
-  static var tipEndTurn = "Click to end current turn (or press <span style=\"color:white\">E</span>).";
-  static var tipMainMenu = "Click to open main menu (or press <span style=\"color:white\">ESC</span>).";
+  static var tipEndTurn = "Click to end current turn (or press <span class=shadow style=\"color:white\">E</span>).";
+  static var tipMainMenu = "Click to open main menu (or press <span class=shadow style=\"color:white\">ESC</span>).";
 }

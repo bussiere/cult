@@ -4,9 +4,9 @@ package sects;
 
 class InvSearchTask extends Task
 {
-  public function new()
+  public function new(g: Game, ui: UI)
     {
-      super();
+      super(g, ui);
       id = 'invSearch';
       name = 'Search for investigator';
       type = 'investigator';
@@ -35,21 +35,17 @@ class InvSearchTask extends Task
 
 
 // on task complete
-  public override function complete(game: Game, ui: UI, cult: Cult, sect: Sect, points: Int)
+  public override function complete(cult: Cult, sect: Sect, points: Int)
     {
-      if (cult.investigator == null || !cult.investigator.isHidden)
+      if (!cult.hasInvestigator || !cult.investigator.isHidden)
         return;
-
-/*
-      // failure
-      if (Math.random() > 0.8)
-        {
-          ui.log2('cult', cult, 'Task completed: Investigator found.');
-          return;
-        }
-*/
 
       cult.investigator.isHidden = false;
       log(cult, 'Task completed: Investigator found.');
+
+      game.tutorial.play('investigatorFound');
+
+      if (game.flags.artifacts)
+        cult.artifacts.onInvestigatorFound(sect);
     }
 }

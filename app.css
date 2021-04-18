@@ -1,0 +1,743 @@
+:root {
+  --main-bg-color: #f9dfbb;
+  --window-bg-color: #f9dfbb;
+  --map-margin-x: 18;
+  --map-margin-y: 18;
+  --border-color-0: #9c1361;
+  --border-color-1: #ec9c3b;
+  --border-color-2: #90015d;
+  --text-color: #222d25;
+  --text-color-log-time: #604412;
+  --text-select-bg: #33333330;
+  --text-font: MavenPro;
+  --advanced-mode-font-size: 16px;
+  --advanced-mode-font: MavenPro;
+  --advanced-mode-margin-x: 10;
+  --node-error-color: #fe6868;
+  --power-color-0: rgb(239, 85, 124);
+  --power-color-1: rgb(92, 227, 255);
+  --power-color-2: rgb(114, 255, 77);
+  --power-color-3: rgb(219, 83, 240);
+  --awareness-text-color-0: var(--window-bg-color);
+  --awareness-text-color-1: #ecf634;
+  --awareness-text-color-2: #ff5959;
+  --awareness-color: #5c3d3d;
+  --willpower-color: #5c3d3d;
+  --adepts-color: #7ef555;
+  --close-button-bottom: 9px;
+  --alert-window-min-height: 90;
+  --alert-window-height-2lines: 110;
+  --artifact-color: #b7b3ff;
+  --artifact-timer-color: #f4a5a5;
+  --artifact-timer-shadow: #2d2d2d;
+  --fluff-color: #4f2f01;
+}
+
+body {
+  background: var(--main-bg-color);
+  color: #d3d3d3;
+  font-size: 20px;
+  font-family: var(--text-font);
+  overflow: hidden;
+}
+
+h2 {
+  margin: 0.15em;
+}
+
+div {
+  font-family: var(--text-font);
+}
+
+b {
+  font-weight: normal;
+}
+
+input[type=checkbox] {
+  transform: scale(1.5);
+}
+
+input[type=text] {
+  padding-left: 5px;
+}
+
+@font-face {
+  font-family: 'Mitr';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(./data/MitrRegular.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Monoton';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(./data/Monoton.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'MavenPro';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url(./data/MavenProFull.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'MavenPro';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url(./data/MavenProFull.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'MavenPro';
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+  src: url(./data/MavenProFull.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+#tooltip {
+  background-color: #a2d3c3;
+  border-radius: 20px;
+  border: solid 2px #4b4b4b;
+  color: var(--text-color);
+  font-size: 14px;
+  letter-spacing: 0.06em;
+  opacity: 0.9;
+  padding: 5px;
+  position: absolute;
+  user-select: none;
+  z-index: 1000;
+}
+#tooltip h3, #tooltip div { margin: 0; }
+
+#mapTooltipWindow {
+  background-color: #a2d3c3;
+  border-radius: 20px;
+  border: solid 2px #4b4b4b;
+  box-shadow: black 0px 0px 3px;
+  color: var(--text-color);
+  letter-spacing: 0.03em;
+  opacity: 0.9 !important;
+  padding: 5px !important;
+  user-select: none;
+  z-index: 1000;
+}
+
+#musicplayer
+{
+  bottom: 5px;
+  margin-top: 10px;
+  height: 75px;
+  padding:0 5 0 5;
+}
+
+a {
+  color: #334b42;
+}
+
+fieldset {
+  border: solid 2px #4b4b4b;
+  border-radius: 15px;
+}
+
+legend {
+  color: var(--text-color);
+  padding: 0 3 0 3;
+}
+
+#status\.turns {
+  transition: 0.4s;
+}
+
+.uiButton {
+  background: #fbcb62;
+  border-radius: 10px;
+  border: solid 2px #dbac45;
+  box-shadow: 3px 3px 1px #8f7f5c;
+  color: #5c3d3d;
+  cursor: pointer;
+  font-family: var(--text-font);
+  font-size: 14px;
+  margin: 0px;
+  padding: 0px;
+  text-align: center;
+  text-transform: uppercase;
+  transition: 0.4s;
+  user-select: none;
+}
+
+.uiButton:hover {
+  background-color: #166619;
+  color: white;
+}
+
+.uiButton:active {
+  background-color: #9dec88;
+  color: #261f1b;
+}
+
+.uiButtonDisabled {
+  background: #dbdbdb;
+  border-radius: 10px;
+  border: solid 2px #bbb5a8;
+  box-shadow: 3px 3px 1px #8f7f5c;
+  color: #bdaeae;
+  cursor: not-allowed !important;
+  font-family: var(--text-font);
+  font-size: 14px;
+  margin: 0px;
+  padding: 0px;
+  text-align: center;
+  text-transform: uppercase;
+  transition: 0.4s;
+  user-select: none;
+}
+
+.topButton {
+  height: 17px;
+  top: 0px;
+}
+
+.statusButton {
+  box-shadow: 3px 3px 3px #81786d !important;
+  letter-spacing: 0.08em !important;
+  padding: 5px !important;
+}
+
+.musicButton {
+  box-shadow: 1px 1px 1px #81786d !important;
+  padding: 0px !important;
+}
+
+.musicButton2 {
+  box-shadow: 1px 1px 1px #81786d !important;
+  color: #382c2c;
+  font-size: 8px;
+  letter-spacing: 0.13em !important;
+  padding: 1px !important;
+}
+
+.selectOption {
+  background-color: #feb757;
+  border-radius: 10px;
+  border: solid 2px #4b4b4b;
+  color: var(--text-color);
+  font-family: var(--text-font);
+}
+
+#mapBorder {
+  position: absolute;
+  border-radius: 39px;
+  top: 32px;
+  left: 246px;
+  right: 4px;
+  bottom: 3px;
+  background: var(--border-color-0);
+}
+
+#map {
+  background: #a6e8d3;
+  border: solid var(--border-color-1) 4px;
+  border-radius: 35px;
+  width: 780px;
+  height: 580px;
+  overflow: hidden;
+  margin: 5px;
+}
+
+#topPanel {
+  width: 788px;
+  height: 26px;
+  left: 245px;
+  top: 5px;
+  background: var(--window-bg-color);
+  position: absolute;
+}
+
+#status {
+  background: var(--window-bg-color);
+  border-radius: 15px;
+  border: solid var(--border-color-1) 4px;
+  font-family: var(--text-font);
+  font-size: 12px;
+  height: 99.3%;
+  left: -1px;
+  overflow: hidden;
+  position: relative;
+  text-transform: uppercase;
+  top: -2px;
+  user-select: none;
+  width: 196px;
+}
+
+#statusBorder {
+  position: absolute;
+  padding: 6px;
+  top: 6px;
+  left: 3px;
+  border-radius: 20px;
+  width: 202px;
+  bottom: 3px;
+  background: var(--border-color-0);
+}
+
+#statusBG {
+/*
+  background: url(data/status-bg.png) no-repeat;
+  background: url(data/status-bg9.png) no-repeat;
+*/
+  height: 100%;
+}
+
+#statusFG {
+  height: 100%;
+/*  background: #a1c0b0c9; */
+}
+
+#status\.cult {
+  padding: 3px;
+  font-size: 17px;
+  text-align: center;
+}
+
+#status\.awareness {
+  border: solid 1px #9696966e;
+  border-radius: 11px;
+  padding: 3px;
+}
+
+#status\.musicPlus {
+  font-size: 10px;
+  height: 12px;
+  left: 134px;
+  position: relative;
+  text-shadow: 0px 0px 1px black;
+  top: -72px;
+  width: 12px;
+}
+
+#status\.musicMinus {
+  font-size: 10px;
+  height: 12px;
+  left: 154px;
+  position: relative;
+  text-shadow: 0px 0px 1px black;
+  top: -88px;
+  width: 12px;
+}
+
+#status\.debug {
+  padding: 20px 5px 0px 5px;
+  color: var(--text-color);
+}
+
+#status-ritual-unveiling {
+  position: absolute;
+  left: 99px;
+  top: 92px;
+}
+
+.statusConvert {
+  box-shadow: 1px 1px 2px #41514b;
+  cursor: pointer;
+  font-size: 15px;
+  height: 18px;
+  text-align: center;
+  text-shadow: 1px 1px 1px #404040;
+  width: 18px;
+}
+
+.statusUpgrade {
+}
+
+.statusNumber {
+}
+
+.statusTable {
+  color: var(--text-color);
+  font-size: 15px;
+  width: 100%;
+}
+
+.statusResourceTable {
+  color: var(--text-color);
+  font-size: 11px;
+}
+
+.cultText {
+}
+
+.powerText {
+  vertical-align: middle;
+  text-shadow: 0px 1px 4px black;
+  letter-spacing: .05em;
+}
+
+#status\.track {
+  color: var(--text-color);
+  font-size: 10px;
+  padding-top: 2px;
+  text-align: center;
+  user-select: text;
+}
+
+#status\.lowerAwareness0, #status\.lowerAwareness1, #status\.lowerAwareness2,
+#status\.lowerWillpower0, #status\.lowerWillpower1, #status\.lowerWillpower2 {
+  text-shadow: none;
+}
+
+#logPanelClear {
+  left: 221px;
+  position: absolute;
+  top: 5px;
+  color: #5c3d3d;
+}
+
+#logPanel {
+  background: #00000021;
+  border-radius: 15px;
+  height: 96.7%;
+  left: 219px;
+  position: absolute;
+  top: 27px;
+  width: 24px;
+}
+
+.logPanelItemOld {
+  border: 2px solid #b18f4e;
+  box-shadow: 1px 1px 3px #514b41;
+  color: white;
+  height: 16px;
+  left: 2px;
+  position: absolute;
+  text-shadow: 1px 1px 1px #606060;
+  width: 16px;
+}
+
+.logPanelItemNew {
+  border: 2px solid #4a392a;
+  box-shadow: 1px 1px 3px #514b41;
+  color: white;
+  height: 16px;
+  left: 2px;
+  position: absolute;
+  text-shadow: 1px 1px 1px #606060;
+  width: 16px;
+}
+
+.uiWindowBorder {
+  background: var(--border-color-2);
+  border-radius: 39px;
+  left: 50%;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.uiWindow {
+  position: absolute;
+  left: 4px;
+  top: 4px;
+  background: var(--window-bg-color);
+  border: solid var(--border-color-1) 4px;
+  border-radius: 35px;
+}
+
+.uiText {
+  background: #ecbd7d;
+  border-radius: 25px;
+  border: 1px solid #777;
+  color: var(--text-color);
+  height: calc(100% - 60px);
+  margin: 1%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 1%;
+  position: relative;
+  width: 96%;
+}
+
+div::-webkit-scrollbar {
+  width: 1em;
+}
+ 
+div::-webkit-scrollbar-track {
+  border-radius: 10px;
+  background: rgba(0,0,0,0.1);
+  border: 1px solid #ccc;
+}
+ 
+div::-webkit-scrollbar-thumb {
+  background-color: #d5d5d5ab;
+  border-radius: 10px;
+  border: 1px solid #aaa;
+}
+
+.uiBG {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  left: 0px;
+  top: 0px;
+  opacity: 0.8;
+  background: #000;
+}
+
+.cultInfoBlock {
+  border-radius: 18px;
+  padding: 0.7%;
+}
+
+.cultInfoLabel {
+  bottom: 7px;
+  color: var(--text-color);
+  left: 14%;
+  position: absolute;
+  user-select: none;
+}
+
+.cultInfoInv1 {
+  font-size: 12px;
+}
+
+.cultInfoInv2 {
+}
+
+.cultInfoInv3 {
+  color: #91182a;
+}
+
+.uiListSects {
+  color: var(--text-color);
+  overflow: auto;
+  width: 100%;
+}
+
+.uiListSectsPlus {
+  font-size: 12px;
+}
+
+.shadow {
+  text-shadow: 1px 1px 1px black;
+}
+
+#sectsBGIMG {
+  background-image: url(data/sect-bg.png);
+  background-repeat: no-repeat;
+  background-position: 56% 234%;
+  background-size: 100%;
+  width: 98%;
+  margin: 1%;
+  border-radius: 25px;
+  border: 1px solid #777;
+}
+
+.uiTextFG {
+  background: #ecbd7dde;
+  border-radius: 25px;
+  color: var(--text-color);
+  height: calc(100% - 46px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  position: relative;
+  user-select: none;
+}
+
+#logBGIMG {
+  background-image: url(data/log-bg.png);
+  background-repeat: no-repeat;
+  background-position: 56% 65%;
+  background-size: 100%;
+  width: 98%;
+  margin: 1%;
+  border-radius: 25px;
+  border: 1px solid #777;
+}
+
+.blinking {
+  animation: blinkingText 2s infinite;
+}
+
+@keyframes blinkingText {
+  0% { color: black; }
+  50% { color: #828282; }
+  100% { color: black; }
+}
+
+#titleVersion {
+  font-family: MavenPro;
+  font-size: 17px;
+}
+
+.messageText {
+  background: #ecbd7d;
+  border-radius: 25px;
+  border: solid 2px #4b4b4b;
+  box-shadow: black 0px 0px 1px;
+  color: var(--text-color);
+  left: 50%;
+  padding: 1%;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 30;
+}
+
+.tutorial-img {
+  border-radius: 11px;
+  border: 1px solid #777;
+  float: left;
+  margin-right: 5px;
+}
+
+.tutorial-img-center {
+  border-radius: 11px;
+  border: 1px solid #777;
+  margin-right: 5px;
+}
+
+.boxes {
+}
+
+.boxleft {
+  float: left;
+  width: 50%;
+}
+
+.boxright {
+  float: left;
+  width: 50%;
+}
+
+#logConsole {
+  background: #fbe3b980;
+  border-radius: 10px;
+  border: solid 1px #00000017;
+  bottom: 12px;
+  height: 98px;
+  left: 257px;
+  overflow: auto;
+  pointer-events: none;
+  position: absolute;
+  user-select: none;
+  width: 62%;
+  z-index: 14;
+  transition: 0.4s;
+}
+
+#logConsoleText {
+  color: black;
+  font-size: 14px;
+  padding: 10px;
+  text-shadow: 1px 1px 1px #adadad;
+}
+
+.spanButton {
+  box-shadow: 1px 1px 2px #41514b;
+  display: inline-block;
+  cursor: pointer;
+  font-size: 15px;
+  padding: 0 4px 0 4px;
+  text-shadow: 1px 1px 1px #404040;
+  width: 10px;
+}
+
+.fluff {
+  color: var(--fluff-color);
+  text-justify: inter-character;
+  text-align: justify;
+  text-indent: 2em;
+  font-style: italic;
+  padding: 0 10px 0 10px;
+}
+
+.fluffNote {
+  color: var(--fluff-color);
+  font-style: italic;
+}
+
+#newGameMenuContents {
+  display: flex;
+  flex-wrap: wrap;
+  flex-direction: column;
+  height: 270px;
+  left: 0.4%;
+  top: 9%;
+  width: 94.6%;
+}
+
+input[type=radio] {
+  transform: scale(1.5);
+  margin-right: 7px;
+}
+
+#mainMenuTitle {
+  font-family: Monoton;
+  font-size: 34px;
+  text-shadow: 1px 1px 1px #0000003b;
+  left: 60%;
+  transform: translate(-50%);
+  top: -1px;
+}
+
+.mainMenuButton {
+  font-size: 18px;
+  margin: 6px 0px 0px 0px;
+  padding: 3px !important;
+  width: 270px;
+}
+
+#mainMenuContents {
+  display: flex;
+  flex-direction: column;
+  left: 50%;
+  transform: translate(-50%);
+  position: absolute;
+  top: 47px;
+}
+
+#saveMenuTitle {
+  text-shadow: 1px 1px 1px #0000003b;
+  left: 70%;
+  transform: translate(-50%);
+  top: 4px;
+}
+
+#saveMenuContents {
+  display: flex;
+  flex-direction: column;
+  left: 50%;
+  transform: translate(-50%);
+  position: absolute;
+  top: 28px;
+}
+
+.saveMenuButton {
+  font-size: 15px;
+  margin: 6px 0px 0px 0px;
+  padding: 3px !important;
+  width: 270px;
+}
+
+.saveMenuText2 {
+  font-size: 12px;
+}
+
+#loadMenuTitle {
+  text-shadow: 1px 1px 1px #0000003b;
+  left: 70%;
+  transform: translate(-50%);
+  top: 4px;
+}
+

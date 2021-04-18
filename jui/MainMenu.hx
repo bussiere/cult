@@ -1,105 +1,147 @@
 // main menu class
 
-class MainMenu
+import js.Browser;
+import js.html.DivElement;
+#if electron
+import electron.renderer.Remote;
+import haxe.Json;
+import js.node.Fs;
+#end
+
+
+class MainMenu extends Window
 {
-  var ui: UI;
-  var game: Game;
-
-  var window: Dynamic; // window element
-  var bg: Dynamic; // background element
-  var close: Dynamic; // close button element
-  var saveButton: Dynamic; // save button element
-  public var isVisible: Bool;
-
+  var saveButton: DivElement;
 
   public function new(uivar: UI, gvar: Game)
     {
-      ui = uivar;
-      game = gvar;
-      isVisible = false;
-
-      // main menu window
-      window = Tools.window(
-        {
-          id: "mainMenuWindow",
-          center: true,
-          winW: UI.winWidth,
-          winH: UI.winHeight,
-          w: 420,
-          h: 280,
-          z: 20
-        });
+#if electron
+      var h = 354;
+#else
+      var h = 200;
+#end
+      super(uivar, gvar, 'mainMenu', 350, h, 20);
 
       Tools.label({
-        id: 'titleLabel',
-        text: 'Evil Cult ' + Game.version,
+        id: 'mainMenuTitle',
+        text: 'EVIL&nbsp;&nbsp;CULT <span id=titleVersion>' + Game.version + '</span>',
         w: 260,
         h: 30,
-        x: 130,
-        y: 10,
+        x: null,
+        y: null,
+        fontSize: null,
         container: window
-        });
+      });
 
       // main menu contents
+      var contents: DivElement = cast Browser.document.createElement("div");
+      contents.id = 'mainMenuContents';
+      window.appendChild(contents);
+
       Tools.button({
-        id: 'newGameEasy',
-        text: "START NEW GAME - EASY",
-        w: 350,
-        h: 30,
-        x: 35,
-        y: 40,
-        container: window,
-        func: onNewGame
-        });
-      Tools.button({
-        id: 'newGameNormal',
-        text: "START NEW GAME - NORMAL",
-        w: 350,
-        h: 30,
-        x: 35,
-        y: 80,
-        container: window,
-        func: onNewGame
-        });
-      Tools.button({
-        id: 'newGameHard',
-        text: "START NEW GAME - HARD",
-        w: 350,
-        h: 30,
-        x: 35,
-        y: 120,
-        container: window,
-        func: onNewGame
-        });
+        id: 'newGame',
+        text: "NEW GAME",
+        className: 'uiButton statusButton mainMenuButton',
+        w: null,
+        h: null,
+        x: null,
+        y: null,
+        flow: true,
+        container: contents,
+        func: function(event) {
+          ui.newGameMenu.show();
+        }
+      });
 
       Tools.button({
         id: 'customGame',
         text: "CUSTOM GAME",
-        w: 350,
-        h: 30,
-        x: 35,
-        y: 160,
-        container: window,
+        className: 'uiButton statusButton mainMenuButton',
+        w: null,
+        h: null,
+        x: null,
+        y: null,
+        flow: true,
+        container: contents,
         func: onCustomGame
-        });
+      });
 
       Tools.button({
-        id: 'customGame',
+        id: 'multiGame',
         text: "MULTIPLAYER GAME",
-        w: 350,
-        h: 30,
-        x: 35,
-        y: 200,
-        container: window,
+        className: 'uiButton statusButton mainMenuButton',
+        w: null,
+        h: null,
+        x: null,
+        y: null,
+        flow: true,
+        container: contents,
         func: onMultiplayerGame
-        });
+      });
+
+      Tools.button({
+        id: 'loadGame',
+        text: "LOAD GAME",
+        className: 'uiButton statusButton mainMenuButton',
+        w: null,
+        h: null,
+        x: null,
+        y: null,
+        flow: true,
+        container: contents,
+        func: onLoadGame
+      });
+
+      saveButton = Tools.button({
+        id: 'saveGame',
+        text: "SAVE GAME",
+        className: 'uiButton statusButton mainMenuButton',
+        w: null,
+        h: null,
+        x: null,
+        y: null,
+        flow: true,
+        container: contents,
+        func: onSaveGame
+      });
+
+      Tools.button({
+        id: 'optionsMenu',
+        text: "OPTIONS",
+        className: 'uiButton statusButton mainMenuButton',
+        w: null,
+        h: null,
+        x: null,
+        y: null,
+        flow: true,
+        container: contents,
+        func: function(event) {
+          ui.options.show();
+        }
+      });
+
+
+#if electron
+      Tools.button({
+        id: 'exitGame',
+        text: "EXIT",
+        className: 'uiButton statusButton mainMenuButton',
+        w: null,
+        h: null,
+        x: null,
+        y: null,
+        flow: true,
+        container: contents,
+        func: onExit
+      });
+#end
 /*
       Tools.button({
         id: 'createMult',
         text: "CREATE MULT",
         w: 150,
         h: 30,
-        x: 35,
+        x: x,
         y: 200,
         container: window,
         func: onCreateMult
@@ -116,47 +158,26 @@ class MainMenu
         func: onJoinMult
         });
 */
-
-      saveButton = { style: {} };
-/*
-      Tools.button({
-        id: 'loadGame',
-        text: "LOAD GAME",
-        w: 350,
-        h: 30,
-        x: 35,
-        y: 160,
-        container: window,
-        func: onLoadGame
-        });
-      saveButton = Tools.button({
-        id: 'saveGame',
-        text: "SAVE GAME",
-        w: 350,
-        h: 30,
-        x: 35,
-        y: 200,
-        container: window,
-        func: onSaveGame
-        });
-*/
-      bg = Tools.bg({ w: UI.winWidth + 20, h: UI.winHeight});
-      close = Tools.closeButton(window, 160, 240, 'mainMenuClose');
-	  close.onclick = onClose;
     }
 
 
-// show main menu
-  public function show()
+  override function onShow()
     {
-      window.style.display = 'inline';
-      bg.style.display = 'inline';
-//      close.style.visibility = 
-//        (game.isFinished ? 'hidden' : 'visible');
-      saveButton.style.display = 
-        (game.isFinished ? 'none' : 'inline');
-      isVisible = true;
+      close.style.visibility =
+        (game.isNeverStarted ? 'hidden' : 'visible');
+      if (game.isNeverStarted || game.isFinished)
+        saveButton.className = 'uiButtonDisabled statusButton mainMenuButton';
+      else saveButton.className = 'uiButton statusButton mainMenuButton';
     }
+
+
+// exit game
+#if electron
+  function onExit(event: Dynamic)
+    {
+      Remote.getCurrentWindow().close();
+    }
+#end
 
 
 // custom game menu
@@ -178,6 +199,16 @@ class MainMenu
 // load game menu
   function onLoadGame(event: Dynamic)
     {
+/*
+#if electron
+      var file = 'save.json';
+      var str = Fs.readFileSync(file, 'utf8');
+      var obj = Json.parse(str);
+      game.load(obj);
+      trace('game loaded from ' + file);
+#end
+*/
+
       ui.loadMenu.show();
       onClose(null);
     }
@@ -186,6 +217,19 @@ class MainMenu
 // save game menu
   function onSaveGame(event: Dynamic)
     {
+      if (game.isNeverStarted || game.isFinished)
+        return;
+
+/*
+#if electron
+      var name = Date.now().toString();
+      var obj = game.save();
+      var str = Json.stringify(obj, null, '  ');
+      var file = 'save.json';
+      Fs.writeFileSync(file, str, 'utf8');
+      trace('game saved to ' + file);
+#end
+*/
       ui.saveMenu.show();
       onClose(null);
     }
@@ -218,8 +262,8 @@ class MainMenu
       path += '?k=' + game_key;
       if (opt_param != null)
         path += '&' + opt_param;
-      
-      var xhr = new js.XMLHttpRequest();
+
+      var xhr = new js.html.XMLHttpRequest();
       xhr.open('GET', path, true);
       xhr.send(null);
     }
@@ -229,12 +273,11 @@ class MainMenu
   var game_key: String;
   function onCreateMult(event: Dynamic)
     {
-      UI.e("haxe:trace").innerHTML = "";
       var dif = Static.difficulty[3];
       game.restart(-1, dif);
 
       // get channel id and game key
-      var req = new js.XMLHttpRequest();
+      var req = new js.html.XMLHttpRequest();
       req.open("GET", "/mp.create" //"?owner=" +
 //        ui.config.get("owner") + "&id=" + save.id
         , false);
@@ -265,7 +308,7 @@ class MainMenu
       game_key = '123';
 
       // get channel id
-      var req = new js.XMLHttpRequest();
+      var req = new js.html.XMLHttpRequest();
       req.open("GET", "/mp.join?k=" + game_key, false);
       req.send(null);
       var text = req.responseText;
@@ -287,76 +330,51 @@ class MainMenu
     }
 */
 
-// start new game
-  function onNewGame(event: Dynamic)
-    {
-      var id = Tools.getTarget(event).id;
-      var dif = 0;
-      if (id == "newGameEasy")
-        dif = 0;
-      else if (id == "newGameNormal")
-        dif = 1;
-      else dif = 2;
-      onNewGameReal(dif);
-    }
-
-
-// start for real
-  function onNewGameReal(dif: Int)
-    {
-      UI.e("haxe:trace").innerHTML = "";
-      game.restart(dif);
-      onClose(null);
-    }
-
-
 // key press
-  public function onKey(e: Dynamic)
+  public override function onKey(e: Dynamic)
     {
-      // new game - easy
+//      trace(e.keyCode);
+      // new game menu
       if (e.keyCode == 49) // 1
-        onNewGameReal(0);
-
-      // new game - normal
-      else if (e.keyCode == 50) // 2
-        onNewGameReal(1);
-
-      // new game - hard
-      else if (e.keyCode == 51) // 3
-        onNewGameReal(2);
+        ui.newGameMenu.show();
 
       // custom game
-      else if (e.keyCode == 52) // 4
+      else if (e.keyCode == 50) // 2
         onCustomGame(null);
 
       // multiplayer game
-      else if (e.keyCode == 53) // 5
+      else if (e.keyCode == 51) // 3
         onMultiplayerGame(null);
-/*
+
+#if electron
+      // quit game
+      else if (e.keyCode == 81) // q
+        onExit(null);
+#end
+
+      // debug game start
+      else if (e.keyCode == 88 && Game.isDebug) // x
+        {
+          onClose(null);
+          game.isTutorial = false;
+          game.difficultyLevel = 2; // 1 - normal
+          game.flags.noBlitz = true;
+          game.flags.devoted = true;
+          game.flags.longRituals = true;
+          game.flags.artifacts = true;
+          game.restart();
+        }
+
       // load game
       else if (e.keyCode == 52) // 4
         onLoadGame(null);
 
       // save game
-      else if (e.keyCode == 53) // 5
+      else if (e.keyCode == 53 && !game.isNeverStarted) // 5
         onSaveGame(null);
-*/
+
       // exit menu
-      else if (e.keyCode == 27// && !game.isFinished
-      ) // ESC
+      else if (e.keyCode == 27 && !game.isNeverStarted) // ESC
         onClose(null);
-    }
-
-
-// hide main menu
-  function onClose(event: Dynamic)
-    {
-//      if (game.isFinished)
-//        return;
-      window.style.display = 'none';
-      bg.style.display = 'none';
-//      close.style.display = 'none';
-      saveButton.style.display = 'none'; 
-      isVisible = false;
     }
 }

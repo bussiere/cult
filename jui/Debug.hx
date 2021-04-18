@@ -1,60 +1,36 @@
 // debug menu
 
-class Debug
+import js.Browser;
+import js.html.DivElement;
+
+class Debug extends Window
 {
-  var ui: UI;
-  var game: Game;
-
-  var window: Dynamic; // window element
-  var menu: Dynamic; // menu element
-  var buttons: Array<Dynamic>;
-  public var isVisible: Bool;
+  var menu: DivElement; // menu element
+  var buttons: Array<DivElement>;
 
 
-  public function new(uivar: UI, gvar: Game)  
+  public function new(uivar: UI, gvar: Game)
     {
-      ui = uivar;
-      game = gvar;
-      isVisible = false;
-      buttons = new Array<Dynamic>();
+      super(uivar, gvar, 'debug', 800, 536, 20);
+      buttons = [];
 
-      // debug window
-      window = Tools.window(
-        {
-          id: "debugWindow",
-          center: true,
-          winW: UI.winWidth,
-          winH: UI.winHeight,
-          fontSize: 18,
-          w: 800,
-          h: 500,
-          z: 20
-        });
-
-      // internals 
-      menu = js.Lib.document.createElement("div");
-      menu.style.overflow = 'auto';
-      menu.style.position = 'absolute';
-      menu.style.left = 10;
-      menu.style.top = 10;
-      menu.style.width = 780;
-      menu.style.height = 450;
-      menu.style.background = '#0b0b0b';
-	  menu.style.border = '1px solid #777';
+      // internals
+      menu = Browser.document.createDivElement();
+      menu.className = 'uiText';
       window.appendChild(menu);
-
-      // log close button
-      var close = Tools.closeButton(window, 360, 465, 'debugClose');
-	  close.onclick = onClose;
 
       lastMenuY = -20;
       menuItem = 0;
-      addItem(0, 'Clear trace', onClearTrace);
       addItem(0, 'Give power', onGivePower);
       addItem(0, 'Open map', onOpenMap);
       addItem(0, 'Investigator: AI', onInvestigatorAI);
       addItem(0, 'Investigator: Player', onInvestigatorPlayer);
-      addItem(0, 'Victory: Summon', onVictorySummon);
+      addItem(0, 'Victory: Summon', function(event) {
+        ui.finish(game.cults[0], "summon");
+      });
+      addItem(0, 'AI Victory: Summon', function(event) {
+        ui.finish(game.cults[1], "summon");
+      });
       addItem(0, 'Total war', onTotalWar);
       addItem(0, 'Invisibility toggle', onToggleInvisible);
       addItem(0, 'Trace timing toggle', onTiming);
@@ -65,6 +41,17 @@ class Debug
       addItem(0, 'Upgrade sects', onUpgradeSects);
       lastMenuY = -20;
       addItem(1, 'Trace Director toggle', onDirector);
+      addItem(1, 'Artifacts: Spawn', function(event)
+        {
+          if (game.flags.artifacts)
+            game.artifacts.spawn();
+        });
+      addItem(1, 'Victory: Conquer', function(event) {
+        ui.finish(game.cults[0], "conquer");
+      });
+      addItem(1, 'AI Victory: Conquer', function(event) {
+        ui.finish(game.cults[1], "conquer");
+      });
     }
 
 
@@ -76,7 +63,7 @@ class Debug
     }
 
 
-// give adepts 
+// give adepts
   function onGiveAdepts(event)
     {
       onGivePower(null);
@@ -89,13 +76,7 @@ class Debug
               if (Math.random() < 0.2)
                 game.player.activate(n2);
           }
-    }
-
-
-// clear trace
-  function onClearTrace(event)
-    {
-      UI.e("haxe:trace").innerHTML = '';
+      game.player.awarenessBase = 0;
     }
 
 
@@ -160,14 +141,6 @@ class Debug
             p.wars[i] = true;
     }
 
-
-// win by summoning
-  function onVictorySummon(event)
-    {
-      ui.finish(game.cults[0], "summon");
-    }
-
-
 // unleash investigators on AI cults
   function onInvestigatorAI(event)
     {
@@ -230,7 +203,7 @@ class Debug
         sym = menuItem - 9 + 65 + 32;
       var b = Tools.button({
         id: 'menuItem' + lastMenuY,
-        fontSize: 14,
+        fontSize: 12,
         bold: false,
         text: String.fromCharCode(sym) + " " + title,
         w: 200,
@@ -238,16 +211,20 @@ class Debug
         x: 10 + row * 210,
         y: lastMenuY,
         container: menu,
-        func: func
-        });
-      b.name = String.fromCharCode(sym);
+        func: function(event) {
+          func(event);
+          ui.map.paint();
+          onClose(null);
+        }
+      });
+      untyped b.name = String.fromCharCode(sym);
       buttons.push(b);
       menuItem++;
     }
 
 
 // key press
-  public function onKey(e: Dynamic)
+  public override function onKey(e: Dynamic)
     {
       // close current window
       if (e.keyCode == 27 || // Esc
@@ -260,26 +237,10 @@ class Debug
 
       // find out which menu item was pressed
       for (b in buttons)
-        if (b.name == String.fromCharCode(e.keyCode).toLowerCase())
+        if (untyped b.name == String.fromCharCode(e.keyCode).toLowerCase())
           {
             b.onclick(null);
             break;
           }
-    }
-
-
-// hide widget
-  function onClose(event)
-    {
-      window.style.display = 'none';
-      isVisible = false;
-    }
-
-
-// show widget
-  public function show()
-    {
-      window.style.display = 'inline';
-      isVisible = true;
     }
 }

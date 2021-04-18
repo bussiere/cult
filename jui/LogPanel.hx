@@ -1,32 +1,45 @@
 // log panel
 
-import js.Lib;
-import js.Dom;
+import js.Browser;
+import js.html.DivElement;
+import js.html.Element;
 
 class LogPanel
 {
   var ui: UI;
   var game: Game;
 
-  var panel: Dynamic;
-  var list: List<Dynamic>;
+  var panel: DivElement;
+  var clearButton: DivElement;
+  var list: List<DivElement>;
 
   public function new(uivar: UI, gvar: Game)
     {
       ui = uivar;
       game = gvar;
-      list = new List<Dynamic>();
+      list = new List();
 
       // panel element
-      panel = Lib.document.createElement("div");
+      panel = Browser.document.createDivElement();
       panel.id = 'logPanel';
-      panel.style.position = 'absolute';
-      panel.style.width = 20;
-      panel.style.height = (UI.mapHeight + UI.topHeight + 8);
-      panel.style.left = 217;
-      panel.style.top = 5;
-      panel.style.background = '#090909';
-      Lib.document.body.appendChild(panel);
+      Browser.document.body.appendChild(panel);
+
+      clearButton = Tools.button({
+        id: 'logPanelClear',
+        text: 'X',
+        className: 'uiButton logPanelItemOld',
+        w: null,
+        h: null,
+        x: null,
+        y: null,
+        container: untyped Browser.document.body,
+        title: 'Clear all messages from the panel.',
+        func: function (ev: Dynamic)
+          {
+            clear();
+            game.player.logPanelMessages = new List();
+          }
+      });
     }
 
 
@@ -37,43 +50,39 @@ class LogPanel
 
       for (m in game.player.logPanelMessages)
         {
+          if (m.params == null)
+            m.params = {};
           // choose symbol/color pair
-          var sym = '!';
-          var col = 'white';
+          var sym = '';
+          var col = (UI.modernMode ? '#d6d6d6' : '#303030');
           if (m.type == 'cult' || m.type == null) // cult-related message
             {
-              var cult: Cult = m.obj;
-              col = UI.lineColors[cult.id]; 
+              var cult = game.cults[m.objID];
+              col = UI.vars.lineColors[cult.id] +
+                (UI.modernMode ? 'e0' : 'b0');
             }
           else if (m.type == 'cults') // messages relating to 2 cults
             {
-              var cult: Cult = m.obj.c1;
-              var cult2: Cult = m.obj.c2;
-              sym = "<span style='color:" + UI.lineColors[cult.id] + "'>!</span>" +
-                "<span style='color:" + UI.lineColors[cult2.id] + "'>!</span>";
+              var cult = game.cults[m.objID];
+              var cult2 = game.cults[m.objID2];
+              var ch = (UI.modernMode ? 'I' : '!');
+              sym = "<span class=shadow style='color:" + UI.vars.lineColors[cult.id] + "'>" + ch + "</span>" +
+                "<span class=shadow style='color:" + UI.vars.lineColors[cult2.id] + "'>" + ch + "</span>";
             }
-          if (m.params != null && m.params.symbol != null)
-             sym = m.params.symbol;
+          if (m.params.symbol != null)
+            sym = m.params.symbol;
 
           // create element
-          var e = Lib.document.createElement("div");
+          var e = Browser.document.createDivElement();
           m.id = list.length;
           e.id = 'log.id' + list.length;
+          e.className = 'uiButton shadow ' +
+            (m.old ? 'logPanelItemOld' : 'logPanelItemNew');
+          e.style.background = col;
           untyped e.messageID = m.id;
-          e.style.position = 'absolute';
-          e.style.width = '18';
-          e.style.height = '18';
-          e.style.left = '0';
           e.style.top = '' + (list.length * 22);
-          e.style.background = (m.old ? '#050505' : '#151515');
-          e.style.border = (m.old ? '1px solid #999' : '1px solid #fff');
-          e.style.cursor = 'pointer';
-          e.style.fontSize = '15px';
-          e.style.color = col;
-          e.style.fontWeight = 'bold';
-          e.style.textAlign = 'center';
-          if (m.params != null && m.params.important)
-            e.style.textDecoration = 'blink';
+          if (m.params.color != null)
+            e.style.color = m.params.color;
           e.innerHTML = sym;
           panel.appendChild(e);
 
@@ -90,7 +99,7 @@ class LogPanel
   public function onClick(event: Dynamic)
     {
       // remove item
-	  var e:Dynamic = Tools.getTarget(event);
+      var e:Dynamic = Tools.getTarget(event);
       if (e.parentNode != panel) // hack for !! items
         e = e.parentNode;
       panel.removeChild(e);
@@ -103,14 +112,14 @@ class LogPanel
 
       // pack items
       var cnt = 0;
-      var nodes: HtmlCollection<HtmlDom> = panel.childNodes;
+      var nodes = panel.childNodes;
       for (i in 0...nodes.length)
         {
-          nodes[i].style.top = '' + (cnt * 24);
+          var el: Element = cast nodes[i];
+          el.style.top = (cnt * 24) + 'px';
           cnt++;
         }
     }
-
 
 // clear log
   public function clear()

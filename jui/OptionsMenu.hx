@@ -1,5 +1,8 @@
 // options menu class
 
+import js.Browser;
+import js.html.DivElement;
+import js.html.Element;
 
 typedef OptionInfo =
 {
@@ -7,163 +10,164 @@ typedef OptionInfo =
   var title: String; // parameter title
   var note: String; // parameter note
   var type: String; // parameter type
+  @:optional var y: Int; // optional y
 };
 
 
-class OptionsMenu
+class OptionsMenu extends Window
 {
-  var ui: UI;
-  var game: Game;
+  var elements: List<Element>; // ui elements
+  var contents: DivElement;
 
-  var window: Dynamic; // window element
-  var bg: Dynamic; // background element
-  var close: Dynamic; // close button element
-  public var isVisible: Bool;
-  var elements: List<Dynamic>; // ui elements
-
-  static var elementInfo: Array<OptionInfo> =
-    [
+  public static var elementInfo: Array<OptionInfo> = [
 /*
       { name: 'investigatorTurnVisible', type: 'int', title: 'Investigator: Turn to become visible',
         note: 'Turn on which new investigator becomes visible' },
       { name: 'investigatorGainWill', type: 'float', title: 'Investigator: Chance of gaining will',
         note: 'Higher value raises chance of investigator gaining will' },
 */
-      { name: 'mapAdvancedMode', type: 'bool', title: 'Advanced map mode',
-        note: 'Displays additional node information on map' },
-      { name: 'logPanelSkipSects', type: 'bool', title: 'No sect messages in log panel',
-        note: 'Will not show sect messages in log panel' },
-      { name: 'sectAdvisor', type: 'bool', title: 'Sect advisor',
-        note: 'Sect advisor will automatically give tasks to sects depending on the situation' },
-    ];
+    {
+      name: 'mapAdvancedMode',
+      type: 'bool',
+      title: 'Advanced map mode',
+      note: 'Displays additional node information on map'
+    },
+    {
+      name: 'logPanelSkipSects',
+      type: 'bool',
+      title: 'No sect messages in log panel',
+      note: 'Will not show sect messages in log panel'
+    },
+    {
+      name: 'sectAdvisor',
+      type: 'bool',
+      title: 'Sect advisor',
+      note: 'Sect advisor will automatically give tasks to sects depending on the situation',
+      y: 64,
+    },
+    {
+      name: 'fullscreen',
+      type: 'bool',
+      title: 'Fullscreen',
+      note: 'Enable or disable fullscreen mode'
+    },
+    {
+      name: 'animation',
+      type: 'bool',
+      title: 'Animations',
+      note: 'Enable or disable map animations'
+    },
+    {
+      name: 'consoleLog',
+      type: 'bool',
+      title: 'Log Console',
+      note: 'Enable or disable log console'
+    },
+  ];
 
 
   public function new(uivar: UI, gvar: Game)
     {
-      ui = uivar;
-      game = gvar;
-      isVisible = false;
+      super(uivar, gvar, 'options', 800, 366, 20);
 
-      // window
-      window = Tools.window(
-        {
-          id: "optionMenuWindow",
-          center: true,
-          winW: UI.winWidth,
-          winH: UI.winHeight,
-          w: 1000,
-          h: 500,
-          z: 20
-        });
+      // title
+      var title = Tools.label({
+        id: 'optionsTitle',
+        text: 'OPTIONS',
+        w: null,
+        h: null,
+        x: null,
+        y: 2,
+        fontSize: null,
+        container: window
+      });
+      title.style.width = '100%';
+      title.style.textAlign = 'center';
+      title.style.fontSize = 'larger';
+      title.style.paddingBottom = '10px';
+
+      contents = Browser.document.createDivElement();
+      contents.className = 'uiText';
+      contents.style.top = '27px';
+      contents.style.height = '76%';
+      window.appendChild(contents);
     }
 
 
 // show main menu
-  public function show()
+  override function onShow()
     {
-      window.innerHTML = '';
+      contents.innerHTML = '';
+      bg.style.display = 'none';
 
-      Tools.label({
-        id: 'titleLabel',
-        text: 'Game Options',
-        w: 300,
-        h: 30,
-        x: 420,
-        y: 10,
-        container: window
-        });
-
-      var divel = js.Lib.document.createElement("div");
-      divel.style.background = '#030303';
-      divel.style.left = '10';
-      divel.style.top = '40';
-      divel.style.width = '980';
-      divel.style.height = '400';
-      divel.style.position = 'absolute';
-      divel.style.overflow = 'auto';
-      window.appendChild(divel);
-
-      elements = new List<Dynamic>();
+      elements = new List();
       var y = 10;
-      
+
       for (info in elementInfo)
         {
           // parameter label
           Tools.label({
             id: 'label' + info.name,
             text: info.title,
-            w: 300,
+            w: 240,
             h: 20,
             x: 10,
             y: y,
             fontSize: 14,
-            container: divel
+            container: contents
             });
 
           // parameter field
-          var el = null;
+          var el: Element = null;
 
           if (info.type == 'bool')
             {
               el = Tools.checkbox({
                 id: info.name,
-//                text: '' + game.player.options.get(info.name),
+                text: '',
                 w: 70,
-                h: 20,
-                x: 320,
+                h: null,
+                x: 240,
                 y: y,
                 fontSize: 14,
-                container: divel
-                });
-              el.checked = game.player.options.getBool(info.name);
+                container: contents
+              });
+              untyped el.checked = game.options.getBool(info.name);
             }
           else el = Tools.textfield({
             id: info.name,
-            text: '' + game.player.options.get(info.name),
+            text: '' + game.options.get(info.name),
             w: 70,
             h: 20,
-            x: 320,
+            x: 240,
             y: y,
             fontSize: 14,
-            container: divel
-            });
+            container: contents
+          });
 
           // parameter note
           Tools.label({
             id: 'note' + info.name,
             text: info.note,
-            w: 540,
+            w: 450,
             h: 20,
-            x: 410,
-            y: y,
+            x: 310,
+            y: (info.y != null ? info.y : y),
             fontSize: 14,
             bold: false,
-            container: divel
-            });
+            container: contents
+          });
 
           y += 30;
-          
+
           elements.add(el);
         }
-
-      bg = Tools.bg({ w: UI.winWidth + 20, h: UI.winHeight});
-      close = Tools.closeButton(window, 460, 460, 'optionMenuClose');
-	  close.onclick = onClose;
-
-      // make window visible
-      window.style.display = 'inline';
-      bg.style.display = 'inline';
-      close.style.display = 'inline';
-      isVisible = true;
     }
 
 
 // close menu
-  public function onClose(e: Dynamic)
+  override function onCloseHook()
     {
-      var dif: Dynamic = { level: -1 };
-      UI.e("haxe:trace").innerHTML = "";
-
       // save all options for current player
       for (info in elementInfo)
         {
@@ -177,40 +181,41 @@ class OptionsMenu
 
           var value: Dynamic = null;
           if (info.type == 'int')
-            value = Std.parseInt(el.value);
+            value = Std.parseInt(untyped el.value);
           else if (info.type == 'float')
-            value = Std.parseFloat(el.value);
+            value = Std.parseFloat(untyped el.value);
           else if (info.type == 'bool')
-            value = el.checked;
+            value = untyped el.checked;
 
-          // save option
-          game.player.options.set(info.name, value);
+          // save option and config
+          game.options.set(info.name, value);
+          ui.config.set(info.name, '' + value);
 
           // sect advisor off, clear task importance flag
-          if (info.name == 'sectAdvisor' && !value)
+          if (!game.isFinished && info.name == 'sectAdvisor' && !value)
             for (s in game.player.sects)
               s.taskImportant = false;
+
+          // enable animations
+          if (info.name == 'animation' && value)
+            ui.map.enableAnimations();
+
+          if (info.name == 'consoleLog')
+            ui.logConsole.show(value);
         }
 
-      game.applyPlayerOptions(); // apply player options
-      realClose();
+      var fs = game.options.getBool('fullscreen');
+      if (ui.fullscreen != fs)
+        ui.setFullscreen(fs);
+      ui.map.paint();
     }
 
 
 // key press
-  public function onKey(e: Dynamic)
+  public override function onKey(e: Dynamic)
     {
       // exit menu
       if (e.keyCode == 27) // ESC
         onClose(null);
-    }
-
-
-  function realClose()
-    {
-      window.style.display = 'none';
-      bg.style.display = 'none';
-      close.style.display = 'none';
-      isVisible = false;
     }
 }

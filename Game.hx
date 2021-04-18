@@ -1,7 +1,11 @@
 // game class for Cult
 
+import js.Browser;
 import Static;
+import _SaveGame;
+import sects.Sect;
 
+@:expose
 class Game
 {
   var ui: UI;
@@ -12,45 +16,97 @@ class Game
   public var cults: Array<Cult>;
   public var currentPlayerID: Int; // ID of current player's turn
   public var player: Cult;
+  public var tutorial: Tutorial;
+  public var highScores: HighScores;
   public var sectTasks: Array<sects.Task>; // available sect tasks
+  public var options: Options; // player options
 
+  public var startTS: Float; // ts of game start
   public var turns: Int; // turns passed
+  public var isNeverStarted: Bool; // game never started?
   public var isFinished: Bool; // game finished?
+  public var isTutorial: Bool; // game is in tutorial mode?
   public var difficultyLevel: Int; // game difficulty (0: easy, 1: normal, 2: hard, -1: custom)
   public var difficulty: DifficultyInfo; // link to difficulty info
+  public var flags: Flags; // game flags
+  public var flagDefaults: Flags; // game flag defaults
+  public var freeQuadrants: Array<Quadrant>; // used during origin location selection
+  public var mapQuadrants8x8: Array<Quadrant>; // 8x8 quadrants, used for node generation
+
+  // expansions
+  public var artifacts: artifacts.ArtifactManager;
 
   // index of the last node/cult (for id generation)
-  var lastNodeIndex: Int;
+  public var lastNodeIndex: Int;
   var lastCultID: Int;
 
   // nodes and lines arrays
   public var nodes: Array<Node>;
   public var lines: List<Line>;
 
-
-  public static var powerNames: Array<String> =
-    [ "Intimidation", "Persuasion", "Bribery", "Virgins" ];
-  public static var powerShortNames: Array<String> =
-    [ "I", "P", "B", "V" ];
-  public static var followerNames: Array<String> =
-    [ "Neophyte", "Adept", "Priest" ];
-  public static var powerConversionCost: Array<Int> = [2, 2, 2, 1];
-  public static var willPowerCost: Int = 2;
-
-  public static var version = "v5.1"; // game version
-  public static var followerLevels = 3; // number of follower levels
-  public static var numPowers = 3; // number of basic powers
-  public static var upgradeCost = 3; // cost to upgrade follower
-  public static var isDebug = false; // debug mode (debug button + extended info window)
-
-
 // constructor
   function new()
     {
+      flagDefaults = {
+        noBlitz: false,
+        devoted: false,
+        longRituals: false,
+
+        artifacts: false,
+      };
+      resetFlags();
+      ui = new UI(this);
+      options = new Options(this, ui);
+      // update player options from config
+      for (info in OptionsMenu.elementInfo)
+        {
+          var val: Dynamic = null;
+          if (info.type == 'bool')
+            val = ui.config.getBool(info.name);
+          else if (info.type == 'int')
+            val = ui.config.getInt(info.name);
+
+          options.set(info.name, val);
+        }
+      highScores = new HighScores(this, ui);
+      // apply modern mode difficulty fixes
+      if (UI.modernMode)
+        for (d in Static.difficulty)
+          {
+            d.mapWidth = Std.int(d.mapWidth * UI.vars.scaleFactor);
+            d.mapHeight = Std.int(d.mapHeight * UI.vars.scaleFactor);
+            d.nodeActivationRadius =
+              Std.int(d.nodeActivationRadius * UI.vars.scaleFactor);
+//            trace(d.nodeActivationRadius);
+          }
+      artifacts = new artifacts.ArtifactManager(this, ui);
+
+#if mydebug
+      isDebug = true;
+#end
+      // NOTE: most of these are for loading the game from the main menu
+      isNeverStarted = true;
       isFinished = true;
-	  this.turns = 0;
-	  ui = new UI(this);
-	  ui.init();
+      isTutorial = false;
+      turns = 0;
+      lines = new List<Line>();
+      nodes = new Array<Node>();
+      cults = new Array<Cult>();
+      lastCultID = 0;
+      difficulty = Static.difficulty[0];
+      tutorial = new Tutorial(this, ui);
+    }
+
+// reset game flags
+  public inline function resetFlags()
+    {
+      flags = Reflect.copy(flagDefaults);
+    }
+
+// init game
+  public function init()
+    {
+      ui.init();
       director = new Director(this, ui);
       sectAdvisor = new sects.Advisor(this);
       ui.mainMenu.show(); // needs to be moved into ui
@@ -59,41 +115,53 @@ class Game
       sectTasks = new Array<sects.Task>();
       for (cl in sects.Sect.taskClasses)
         {
-          var t = Type.createInstance(cl, []);
+          var t = Type.createInstance(cl, [ this, ui ]);
           sectTasks.push(t);
         }
     }
 
 
 // restart a game
-  public function restart(newDifficulty: Int, ?newDif: DifficultyInfo)
+  public function restart(?newDif: DifficultyInfo)
     {
+      startTS = Sys.time();
+      isNeverStarted = false;
+      tutorial = new Tutorial(this, ui);
+
       // show starting message
       if (ui.config.get('hasPlayed') == null)
-        ui.alert("Welcome.<br><br>If this is your first time playing, please take the time to " +
-          "read the <a target=_blank href='http://code.google.com/p/cult/wiki/Manual_" + version +
-          "'>Manual</a> " +
-          "before playing. We are not responsible for horrific deaths caused by not reading the " +
+        ui.alert("Welcome.<br><br>If this is your first time playing, do not hesitate to " +
+          "consult the Manual if you have any questions. " +
+          "We are not responsible for horrific deaths caused by ignoring the " +
           "Manual. You have been warned.");
+#if !electron
+      ui.alert('Now available on Steam!<br><br><iframe src="https://store.steampowered.com/widget/1237260/" frameborder="0" style="padding-left:3%" width="95%" height="190"></iframe>', {
+        h: 320
+      });
+#end
+      if (isTutorial)
+        tutorial.play('start');
       ui.config.set('hasPlayed', '1');
 
-      ui.track("startGame diff:" + newDifficulty);
       startTimer("restart");
 
-      difficultyLevel = newDifficulty;
       if (difficultyLevel >= 0)
         difficulty = Static.difficulty[difficultyLevel];
-      else
-        difficulty = newDif; // custom difficulty
-      this.isFinished = false;
-	  this.turns = 0;
+      else difficulty = newDif; // custom difficulty
+      isFinished = false;
+      turns = 0;
+      ui.map.initMinimap();
       ui.clearMap();
       ui.clearLog();
+      ui.logConsole.resize();
 
-      this.lines = new List<Line>();
-      this.nodes = new Array<Node>();
-      this.cults = new Array<Cult>();
-      this.lastCultID = 0;
+      if (isDebug)
+        trace('nodeActivationRadius: ' + difficulty.nodeActivationRadius);
+
+      lines = new List<Line>();
+      nodes = new Array<Node>();
+      cults = new Array<Cult>();
+      lastCultID = 0;
 
       // clear cults
       var cultInfo = new Array<Int>();
@@ -122,9 +190,6 @@ class Game
             {
               p = new Cult(this, ui, id, infoID);
 
-              // starting player options
-              p.options.set('sectAdvisor', true);
-
               numPlayersLeft--;
             }
           else p = new AI(this, ui, id, infoID);
@@ -133,27 +198,78 @@ class Game
         }
       player = cults[0];
       currentPlayerID = 0;
-	  this.lastNodeIndex = 0;
+      this.lastNodeIndex = 0;
+
+      if (flags.artifacts)
+        artifacts.onRestart();
 
       // spawn nodes
       for (i in 1...(difficulty.nodesCount + 1))
         spawnNode();
 
-      // make 15% of nodes generators
-      var cnt: Int = Std.int(0.15 * difficulty.nodesCount);
-      for (i in 0...cnt)
+      // clear nodes that do not have any links
+      var toRemove = new List();
+      for (node in nodes)
         {
-          var nodeIndex = Math.round((difficulty.nodesCount - 1) * Math.random());
-          var node = nodes[nodeIndex];
-
-          node.makeGenerator();
+          var ok = false;
+          for (n in nodes)
+            if (n != node &&
+                n.distance(node) < difficulty.nodeActivationRadius)
+              {
+                ok = true;
+                break;
+              }
+          if (!ok)
+            toRemove.add(node);
         }
+      if (isDebug && toRemove.length > 0)
+        trace(toRemove.length + ' nodes removed');
+      for (n in toRemove)
+        nodes.remove(n);
+
+      // make 15% of nodes generators
+      // split map into small quadrants for each generator
+      // and pick random node in that quadrant
+      trace('spawning generators...');
+      var dx = Std.int(difficulty.mapWidth /
+        Math.sqrt(0.15 * difficulty.nodesCount));
+      var dy = Std.int(difficulty.mapHeight /
+        Math.sqrt(0.15 * difficulty.nodesCount));
+      var xx = 0, yy = 0;
+      var cnt = 0;
+      while (yy < difficulty.mapHeight)
+        {
+          xx = 0;
+          while (xx < difficulty.mapWidth)
+            {
+              // form a temp list of nodes in that quadrant
+              var tmp = [];
+              for (n in nodes)
+                if (n.x > xx && n.x < xx + dx &&
+                    n.y > yy && n.y < yy + dy)
+                  tmp.push(n);
+              if (tmp.length > 0)
+                {
+                  var node = tmp[Std.random(tmp.length)];
+                  node.makeGenerator();
+                  cnt++;
+                }
+              else trace('no generator for ' +
+                xx + ',' + yy + ' -> ' + (xx + dx) + ',' + (yy + dy));
+              xx += dx;
+            }
+          yy += dy;
+        }
+      trace('done, ' + cnt + ' generators.');
 
       updateLinks(); // update adjacent node links
 
       // choose and setup starting nodes
-      for (p in cults)
-	    p.setOrigin();
+      // init quadrants
+      freeQuadrants = Static.getQuadrants(difficulty, 2);
+      mapQuadrants8x8 = Static.getQuadrants(difficulty, 8);
+      for (c in cults)
+        c.setOrigin();
 
 //      ui.map.paint();
       ui.map.center(player.origin.x, player.origin.y);
@@ -161,7 +277,7 @@ class Game
 
       for (c in cults)
         c.log("Game started.");
-      endTimer("restart"); 
+      endTimer("restart");
     }
 
 
@@ -170,44 +286,105 @@ class Game
     {
       // fill adjacent node lists
       for (n in nodes)
+        n.updateLinks();
+/*
         for (n2 in nodes)
-          if (n != n2 && n.distance(n2) < difficulty.nodeActivationRadius)
+          if (n != n2 && n.distance(n2) <= difficulty.nodeActivationRadius)
             {
               n.links.remove(n2);
               n.links.add(n2);
-            }
+            }*/
     }
 
-// spawn new node (fsp)
-  public function spawnNode()
+
+// find free spot for a new node
+  public function findFreeSpot(d: Int): { x: Int, y: Int }
     {
-      // find node position
       var x = 0, y = 0;
       var cnt = 0;
+      var sx = UI.vars.markerWidth * 2;
+      var sy = UI.vars.markerHeight * 2;
+      var d = UI.vars.markerWidth * 2;
       while (true)
         {
-		  x = Math.round(20 + Math.random() * 
-		    (difficulty.mapWidth - UI.markerWidth - 40));
-		  y = Math.round(20 + Math.random() * 
-		    (difficulty.mapHeight - UI.markerHeight - 40));
+          x = Math.round(20 + Math.random() *
+            (difficulty.mapWidth - UI.vars.markerWidth - 40));
+          y = Math.round(20 + Math.random() *
+            (difficulty.mapHeight - UI.vars.markerHeight - 40));
 
-		  cnt++;
-		  if (cnt > 100)
-		    return;
+          cnt++;
+          if (cnt > 100)
+            {
+              trace('could not spawn node');
+              return null;
+            }
 
-		  // node
-		  var ok = 1;
-		  for (n in nodes)
-	    	if ((x - 30 < n.x && x + UI.markerWidth + 30 > n.x) &&
-	        	(y - 30 < n.y && y + UI.markerHeight + 30 > n.y))
-		      ok = 0;
+          // check min distance to other nodes
+          var ok = 1;
+          for (n in nodes)
+            if (n.distanceXY(x, y) < d)
+              {
+                ok = 0;
+                break;
+              }
 
-		  if (ok == 1)
-	    	break;
-		}
+          if (ok == 1)
+            break;
+        }
+      
+      return { x: x, y: y };
+    }
+
+
+// find free spot for a new node in a given quad
+  public function findFreeSpotQuad(quad: Quadrant, d: Int): { x: Int, y: Int }
+    {
+      var x = 0, y = 0;
+      var cnt = 0;
+      var sx = UI.vars.markerWidth * 2;
+      var sy = UI.vars.markerHeight * 2;
+      var d = UI.vars.markerWidth * 2;
+      while (true)
+        {
+          x = Math.round(quad.x1 + 20 + Math.random() *
+            (quad.x2 - quad.x1 - UI.vars.markerWidth - 40));
+          y = Math.round(quad.y1 + 20 + Math.random() *
+            (quad.y2 - quad.y1 - UI.vars.markerHeight - 40));
+
+          cnt++;
+          if (cnt > 100)
+            {
+//              trace('could not spawn node, quad ' + quad);
+              return null;
+            }
+
+          // check min distance to other nodes
+          var ok = 1;
+          for (n in nodes)
+            if (n.distanceXY(x, y) < d)
+              {
+                ok = 0;
+                break;
+              }
+
+          if (ok == 1)
+            break;
+        }
+      
+      return { x: x, y: y };
+    }
+
+
+// spawn new node (fsp)
+  function spawnNode()
+    {
+      // find free position
+      var pos = findFreeSpot(UI.vars.markerWidth * 2);
+      if (pos == null)
+        return;
 
       // node attributes
-      var node = new Node(this, ui, x, y, lastNodeIndex++);
+      var node = new Node(this, ui, pos.x, pos.y, lastNodeIndex++);
 
       if (mapVisible)
         node.setVisible(player, true);
@@ -217,106 +394,11 @@ class Game
     }
 
 
-// load game (flo)
-  public function load(save: Dynamic)
+// remove node from active game nodes
+  public function removeNode(node: Node)
     {
-      // clear everything
-      this.isFinished = false;
-	  this.turns = 0;
-      ui.clearMap();
-      ui.clearLog();
-
-      this.lines = new List<Line>();
-      this.nodes = new Array<Node>();
-      this.cults = new Array<Cult>();
-
-      difficultyLevel = save.dif;
-      difficulty = Static.difficulty[difficultyLevel];
-      turns = save.turns;
-
-      // load cults
-      var savecults:Array<Dynamic> = save.cults;
-      for (c in savecults)
-        {
-          var cult = null;
-          if (c.ia == 0)
-            {
-              cult = new Cult(this, ui, c.id, c.iid);
-              player = cult;
-            }
-          else cult = new AI(this, ui, c.id, c.iid);
-          cult.load(c);
-          cults.push(cult);
-        }
-
-      //trace(obj);
-
-      // load nodes
-      var savenodes:Array<Dynamic> = save.nodes;
-//	  this.lastNodeIndex = 0;
-      for (n in savenodes)
-        {
-          var node = new Node(this, ui, n.x, n.y, n.id);
-          node.load(n);
-          nodes.push(node);
-          if (node.owner == player)
-            node.isKnown[player.id] = true;
-        }
-      updateLinks(); // update adjacent node links
-
-      for (c in savecults) // misc cult info
-        for (cc in cults)
-          if (c.id == cc.id)
-            {
-              var n = getNode(c.or); // cult origin
-              if (n != null)
-                cc.origin = n;
-            }
-
-      for (n in nodes) // update node display
-        n.update();
-
-      // load lines
-      var savelines:Array<Dynamic> = save.lines;
-      for (l in savelines)
-        {
-          var startNode = getNode(l[0]);
-          var endNode = getNode(l[1]);
-          var cult = cults[l[2]];
-          var line = Line.create(ui.map, cult, startNode, endNode);
-          trace('TODO: load lines visibility bug!');
-//          if (l[3] == 1)
-//            line.setVisible(game.player, true);
-          lines.add(line);
-          startNode.lines.add(line);
-          endNode.lines.add(line);
-        }
-
-      ui.updateStatus();
-    }
-
-
-// save game (fsa)
-  public function save(): Dynamic
-    {
-      // TODO: save log? - possibly last 10 records
-      var save: Dynamic = {};
-      save.nodes = new Array<Dynamic>();
-      for (n in nodes)
-        save.nodes.push(n.save());
-      save.cults = new Array<Dynamic>();
-      for (c in cults)
-        save.cults.push(c.save());
-      save.lines = new Array<Dynamic>();
-      trace('TODO: save lines fail');
-/*      
-      for (l in lines) // pack lines into int arrays
-        save.lines.push([ l.startNode.id, l.endNode.id, l.owner.id,
-          (l.isVisible ? 1 : 0) ]);
-*/
-      save.turns = turns;
-      save.dif = difficultyLevel;
-      return save;
+      nodes.remove(node);
+      ui.map.paint();
     }
 
 
@@ -333,6 +415,7 @@ class Game
 // on clicking end turn button (ftu)
   public function endTurn()
     {
+      // ai turns
       var newPlayerID = -1;
       for (i in (currentPlayerID + 1)...cults.length)
         {
@@ -341,17 +424,18 @@ class Game
           // AI turn
           if (c.isAI && !c.isDead)
             {
-              c.turn();
+              var ai: AI = cast cults[i];
+              ai.turn();
 
               // game could be finished on summoning success
               if (isFinished)
                 return;
 
-              startTimer("ai " + c.name);
-              untyped c.aiTurn();
-              endTimer("ai " + c.name);
+              startTimer("ai " + ai.name);
+              ai.aiTurn();
+              endTimer("ai " + ai.name);
             }
-          
+
           if (!c.isAI && !c.isDead)
             {
               newPlayerID = i;
@@ -365,36 +449,43 @@ class Game
           player = cults[newPlayerID];
           currentPlayerID = newPlayerID;
 
-          applyPlayerOptions(); // apply options for this player
-
           player.turn();
           for (c in cults)
             c.checkVictory();
 
           // center map on new player
-          var x = 0, y = 0;
-          if (player.origin != null)
+          if (difficulty.numPlayers > 1)
             {
-              x = player.origin.x;
-              y = player.origin.y;
+              var x = 0, y = 0;
+              if (player.origin != null)
+                {
+                  x = player.origin.x;
+                  y = player.origin.y;
+                }
+              else
+                {
+                  // no origin, get eldest node
+                  var node = player.nodes.first();
+                  for (n in player.nodes)
+                    if (n.level > node.level)
+                      node = n;
+                  x = node.x;
+                  y = node.y;
+                }
+              ui.map.center(x, y);
             }
-          else
-            {
-              // no origin, get eldest node
-              var node = player.nodes.first();
-              for (n in player.nodes)
-                if (n.level > node.level)
-                  node = n;
-              x = node.x;
-              y = node.y;
-            }
-          ui.map.center(x, y);
-      
+
           ui.logPanel.paint();
-	      ui.updateStatus();
+          ui.logConsole.update();
+          ui.updateStatus();
+          ui.map.paint();
 
           if (difficulty.numPlayers > 1)
-            ui.alert("Your turn<br>" + player.fullName, true, 1); 
+            ui.alert("Your turn<br>" + player.fullName, {
+              w: 400,
+              h: 125,
+              shadowOpacity: 1,
+            });
         }
 
       // all cults are done, next turn
@@ -404,8 +495,21 @@ class Game
           currentPlayerID = -1;
           director.turn();
           endTurn();
+
+          // node turns
+          for (n in nodes)
+            n.turn();
+
+          // expansions
+          if (flags.artifacts)
+            artifacts.turn();
         }
-	}
+
+      // tutorial hooks
+      tutorial.play('endTurn');
+      if (player.awareness >= 10)
+        tutorial.play('awareness');
+    }
 
 
 // fail all appropriate sect tasks
@@ -417,39 +521,209 @@ class Game
             s.clearTask();
     }
 
-
-// apply current player options
-  public function applyPlayerOptions()
+// returns true if game flags are default
+  public function isFlagsDefault(): Bool
     {
-      ui.map.isAdvanced = player.options.getBool('mapAdvancedMode');
-//      trace(player.id + ' ' + ui.map.isAdvanced);
-
-      ui.map.paint();
+      for (f in Reflect.fields(flags))
+        if (Reflect.field(flags, f) != Reflect.field(flagDefaults, f))
+          return false;
+      return true;
     }
 
+// get flags string
+  public function getFlagsString(): String
+    {
+      var s = new StringBuf();
+      for (f in Reflect.fields(flags))
+        if (Reflect.field(flags, f))
+          {
+            s.add(f.toUpperCase());
+            s.add(' ');
+          }
+      return s.toString();
+    }
 
 // start counting time
   var timerTime: Float;
   public inline function startTimer(name)
     {
       if (debugTime)
-        timerTime = Date.now().getTime();
+        timerTime = Browser.window.performance.now();
+//        timerTime = Date.now().getTime();
     }
-
 
 // end counting time and display it
   public inline function endTimer(name)
     {
       if (debugTime)
-        trace(name + ": " + (Date.now().getTime() - timerTime) + "ms");
+//        trace(name + ": " + (Date.now().getTime() - timerTime) + "ms");
+        trace(name + ": " + (Browser.window.performance.now() - timerTime) + "ms");
     }
 
+// save info
+  public function saveInfo(): _SaveInfo
+    {
+      var info: _SaveInfo = {
+        date: DateTools.format(Date.now(), "%d %b %Y %H:%M:%S"),
+        version: Game.version,
+        flags: getFlagsString(),
+        turns: turns,
+        difficulty: null,
+      }
+      if (difficulty.numPlayers > 1)
+        info.difficulty = 'multiplayer';
+      else if (difficulty.level == 0)
+        info.difficulty = 'easy';
+      else if (difficulty.level == 1)
+        info.difficulty = 'normal';
+      else if (difficulty.level == 2)
+        info.difficulty = 'hard';
+      else info.difficulty = 'custom';
+
+      return info;
+    }
+
+// save game (fsa)
+  public function save(): _SaveGame
+    {
+      var save: _SaveGame = {
+        secondsPlayed: (Sys.time() - startTS),
+        mode: (UI.modernMode ? 'modern' : 'classic'),
+        date: DateTools.format(Date.now(), "%d %b %Y %H:%M:%S"),
+        version: Game.version,
+        currentPlayerID: currentPlayerID,
+        turns: turns,
+        difficulty: difficulty,
+        artifacts: artifacts.save(),
+        flags: flags,
+        lastNodeIndex: lastNodeIndex,
+        cults: [],
+        nodes: [],
+        lines: [],
+      };
+      for (c in cults)
+        save.cults.push(c.save());
+      for (n in nodes)
+        save.nodes.push(n.save());
+      for (l in lines)
+        save.lines.push({
+          start: l.startNode.id,
+          end: l.endNode.id,
+          owner: l.owner.id,
+          vis: l.visibility,
+        });
+      return save;
+    }
+
+// load game (flo)
+  public function load(save: _SaveGame)
+    {
+      // clear everything (first fake-end the game to disable map paints)
+      isFinished = true;
+      isNeverStarted = true;
+      isTutorial = false;
+      turns = 0;
+      ui.map.initMinimap();
+      ui.clearMap();
+      ui.clearLog();
+      lines = new List<Line>();
+      nodes = new Array<Node>();
+      cults = new Array<Cult>();
+      isFinished = false;
+      isNeverStarted = false;
+      ui.logConsole.resize();
+
+      // load
+      currentPlayerID = save.currentPlayerID;
+      turns = save.turns;
+      difficultyLevel = save.difficulty.level;
+      difficulty = save.difficulty;
+      artifacts.load(save.artifacts);
+      flags = save.flags;
+      lastNodeIndex = save.lastNodeIndex;
+      startTS = Sys.time() - save.secondsPlayed;
+
+      // load cults
+      for (c in save.cults)
+        {
+          var cult = null;
+          if (!c.isAI)
+            cult = new Cult(this, ui, c.id, c.infoID);
+          else cult = new AI(this, ui, c.id, c.infoID);
+          cult.load(c);
+          cults.push(cult);
+        }
+      player = cults[currentPlayerID];
+      //trace(obj);
+
+      // load nodes
+      for (n in save.nodes)
+        {
+          var node: Node = null;
+          if (n.type == 'artifact')
+            node = new artifacts.ArtifactNode(this, ui, n.x, n.y, n.id);
+          else node = new Node(this, ui, n.x, n.y, n.id);
+          node.load(n);
+          nodes.push(node);
+        }
+      updateLinks(); // update adjacent node links
+
+      // misc cult info - needs nodes loaded
+      for (c in save.cults)
+        {
+          var cult = cults[c.id];
+          // set cult origin
+          for (cc in cults)
+            if (c.id == cc.id)
+              {
+                var n = getNode(c.origin);
+                if (n != null)
+                  cc.origin = n;
+              }
+
+          // load sects
+          for (s in c.sects)
+            {
+              var node = getNode(s.leader);
+              var sect = new Sect(this, ui, node, cult);
+              cult.sects.add(sect);
+              node.sect = sect;
+              sect.load(s);
+            }
+
+          // load artifacts
+          cult.artifacts.load(c.artifacts);
+        }
+
+      for (n in nodes) // update node display
+        n.update();
+
+      // load lines
+      for (l in save.lines)
+        {
+          var startNode = getNode(l.start);
+          var endNode = getNode(l.end);
+          var cult = cults[l.owner];
+          var line = Line.create(ui, cult, startNode, endNode);
+          line.visibility = l.vis;
+          lines.add(line);
+          startNode.lines.add(line);
+          endNode.lines.add(line);
+        }
+
+      freeQuadrants = Static.getQuadrants(difficulty, 2);
+      mapQuadrants8x8 = Static.getQuadrants(difficulty, 8);
+      ui.map.center(player.origin.x, player.origin.y);
+      ui.logPanel.paint();
+      ui.updateStatus();
+    }
 
 // main function
   static var instance: Game;
   static function main()
     {
       instance = new Game();
+      instance.init();
     }
 
 
@@ -462,4 +736,20 @@ class Game
   public static var debugAI = false; // show AI debug messages
   public static var debugDirector = false; // show director debug messages
   public static var mapVisible = false; // all map is visible at start
+
+  public static var powerNames: Array<String> =
+    [ "Intimidation", "Persuasion", "Bribery", "Virgins" ];
+  public static var powerShortNames: Array<String> =
+    [ "I", "P", "B", "V", "*" ];
+  public static var followerNames: Array<String> =
+    [ "Neophyte", "Adept", "Priest" ];
+  public static var powerConversionCost: Array<Int> = [2, 2, 2, 1];
+  public static var willPowerCost: Int = 2;
+
+  public static var version = "v7.0"; // game version
+  public static var followerLevels = 3; // number of follower levels
+  public static var numPowers = 3; // number of basic powers
+  public static var numFullPowers = 4; // number of basic powers + 1
+  public static var upgradeCost = 3; // cost to upgrade follower
+  public static var isDebug = false; // debug mode (debug button + extended info window)
 }

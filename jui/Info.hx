@@ -1,65 +1,27 @@
-// ui for cult info 
+// ui for cult info
 
-class Info
+import js.Browser;
+import js.html.DivElement;
+
+class Info extends Window
 {
-  var ui: UI;
-  var game: Game;
-
-  public var window: Dynamic; // window element
-  public var text: Dynamic; // text element
-  public var isVisible: Bool;
+  var text: DivElement; // text element
 
 
   public function new(uivar: UI, gvar: Game)
     {
-      ui = uivar;
-      game = gvar;
-      isVisible = false;
-  
-      // window
-      window = Tools.window(
-        {
-          id: "windowInfo",
-          center: true,
-          winW: UI.winWidth,
-          winH: UI.winHeight,
-          fontSize: 16,
-          bold: true,
-          w: 800,
-          h: 520,
-          z: 20
-        });
-      window.style.display = 'none';
-      window.style.padding = '5 5 5 5';
-	  window.style.border = '4px double #ffffff';
+      super(uivar, gvar, 'cultInfo', 800, 536, 20);
 
       // info text
-      text = js.Lib.document.createElement("div");
-      text.style.overflow = 'auto';
-      text.style.position = 'absolute';
-      text.style.left = 10;
-      text.style.top = 10;
-      text.style.width = 780;
-      text.style.height = 480;
-      text.style.background = '#111';
+      text = Browser.document.createDivElement();
+      text.className = 'uiText';
+      text.style.fontSize = '16px';
       window.appendChild(text);
-
-      // close button
-      var close = Tools.closeButton(window, 365, 493, 'infoClose');
-	  close.onclick = onClose;
-    }
-
-
-// hide info
-  public function onClose(event)
-    {
-      window.style.display = 'none';
-      isVisible = false;
     }
 
 
 // show info
-  public function show()
+  override function onShow()
     {
       var s = '';
 
@@ -70,7 +32,7 @@ class Info
 //            continue;
 
           // name
-          s += '<div style="' + (i == 0 ? 'background:#333333' : 
+          s += '<div class="cultInfoBlock" style="' + (i == 0 ? 'background:var(--text-select-bg)' :
             '') +
             '">';
           if (p.isDead)
@@ -94,59 +56,37 @@ class Info
           // investigator info
           if (p.hasInvestigator && p.isInfoKnown[game.player.id])
             {
-              s += "<span style='font-size: 12px; color: #999999'>Investigator <span style='color: white'>" +
+              s += "<span class=cultInfoInv1>Investigator <span class=cultInfoInv2>" +
                 p.investigator.name + "</span>";
               if (!p.investigator.isHidden)
                 s += ": Level " + (p.investigator.level + 1) +
                 ', Willpower ' + p.investigator.will;
               s += '</span>';
               if (p.investigator.isHidden)
-                s += " <span style='color:#ffffff'>--- Hidden ---</span>";
+                s += " <span class=cultInfoInv3>&lt;Hidden&gt;</span>";
               s += '<br>';
             }
-          if (Game.isDebug && p.investigatorTimeout > 0 && p.isInfoKnown[game.player.id])
+          if (Game.isDebug &&
+              p.investigatorTimeout > 0 &&
+              p.isInfoKnown[game.player.id])
             s += " Investigator timeout: " + p.investigatorTimeout + "<br>";
 
           // debug info
           if (Game.isDebug)
-            {
-              s += "<span style='font-size: 10px'>";
-              for (i in 0...p.power.length)
-                {
-                  s += UI.powerName(i, true) + ": " + p.power[i] + " (";
-                  if (i < 3)
-                    s += p.getResourceChance() + "%) ";
-                  else s += (p.neophytes / 4 - 0.5) + ") ";
-                }
-              s += "<span title='Awareness'>A: " + p.awareness + "%</span> ";
-              s += "<span title='Chance of summoning'>ROS: " + p.getUpgradeChance(2) + "%</span> ";
-              if (!p.hasInvestigator)
-                s += "<span title='Chance of investigator appearing'>IAC: " +
-                  p.getInvestigatorChance() + "%</span> ";
-              if (p.hasInvestigator)
-                {
-                  s += "<span title='Chance of investigator reveal'>IRC: " +
-                    p.investigator.getKillChance() + "%</span> ";
-                  s += "<span title='Chance of investigator willpower raise'>IWC: " +
-                    p.investigator.getGainWillChance() + "%</span> ";
-                }
-              s += "<span title='Cult Power'>PWR: " +
-                game.director.getCultPower(p) + "</span> ";
-              s += 'Dif: ' + p.difficulty.level;
-              s += "</span><br>";
-            }
+            s += getDebugInfo(p, false);
 
           // ritual
           if (p.isRitual && p.isInfoKnown[game.player.id])
             {
-              var turns = Std.int(p.ritualPoints / p.priests);
-              if (p.ritualPoints % p.priests > 0)
+              var perTurn = p.getRitualPoints();
+              var turns = Std.int(p.ritualPoints / perTurn);
+              if (p.ritualPoints % perTurn > 0)
                 turns += 1;
-              s += "Casting <span title='" + p.ritual.note +
+              s += "Performing <span class=shadow title='" + p.ritual.note +
                 "' id='info.ritual" + i +
                 "' style='color:#ffaaaa'>" + p.ritual.name +
-                "</span>, " + (p.ritual.points - p.ritualPoints) + "/" +
-                p.ritual.points + " points, " + turns +
+                "</span>, " + (p.getMaxRitualPoints() - p.ritualPoints) + "/" +
+                p.getMaxRitualPoints() + " points, " + turns +
                 " turns left<br>";
             }
 
@@ -160,6 +100,11 @@ class Info
                 s += " --- Paralyzed ---";
               s += '<br>';
             }
+
+          // artifacts
+          if (game.flags.artifacts && !p.isAI &&
+              p.isInfoKnown[game.player.id])
+            s += ui.artifacts.getInfoString(p);
 
           // description
 //          if (p.isInfoKnown)
@@ -177,12 +122,18 @@ class Info
         }
 
       text.innerHTML = s;
+      bg.style.display = 'inline';
       window.style.display = 'inline';
       isVisible = true;
 
       for (i in 0...game.difficulty.numCults)
         {
-/*        
+          var p = game.cults[i];
+          if (game.flags.artifacts && !p.isAI)
+            ui.artifacts.updateCultInfo(p);
+          ui.initTooltip('info.ritual' + i);
+
+/*
           if (!game.cults[i].isDiscovered || !game.cults[i].isInfoKnown)
             continue;
           if (e("info.longnote" + i) == null)
@@ -192,30 +143,72 @@ class Info
           var c:Dynamic = e("info.toggleNote" + i);
           c.style.cursor = 'pointer';
           c.noteID = i;
-          c.onclick =
-            function(event) 
-              {
-                var t: Dynamic = event.target;
-                if (t.innerHTML == '+')
-                  {
-                    t.innerHTML = '&mdash;';
-                    e("info.longnote" + t.noteID).style.display = 'block';
-                    e("info.note" + t.noteID).style.display = 'none';
-                  }
-                else
-                  {
-                    t.innerHTML = '+';
-                    e("info.longnote" + t.noteID).style.display = 'none';
-                    e("info.note" + t.noteID).style.display = 'block';
-                  }
-              };
+          c.onclick = function(event)
+            {
+              var t: Dynamic = event.target;
+              if (t.innerHTML == '+')
+                {
+                  t.innerHTML = '&mdash;';
+                  e("info.longnote" + t.noteID).style.display = 'block';
+                  e("info.note" + t.noteID).style.display = 'none';
+                }
+              else
+                {
+                  t.innerHTML = '+';
+                  e("info.longnote" + t.noteID).style.display = 'none';
+                  e("info.note" + t.noteID).style.display = 'block';
+                }
+            };
         }
+    }
+
+
+// form debug info string
+  public function getDebugInfo(p: Cult, status: Bool): String
+    {
+      var s = "<span style='font-size: 10px'>";
+      for (i in 0...p.power.length)
+        {
+          s += UI.powerName(i, true) + ": " + p.power[i] + " (";
+          if (i < 3)
+            s += '+0-' + p.powerMod[i] + ', ' +
+              p.getResourceChance() + "%), ";
+          else s += '+0-' + p.maxVirgins() + "), ";
+          if (status)
+            s += '<br>';
+        }
+      s += "<span title='Awareness'>A: " + p.awareness + "%</span>, ";
+      if (status)
+        s += '<br>';
+      s += "<span title='Chance of summoning'>ROS: " + p.getUpgradeChance(2) + "%</span>, ";
+      if (status)
+        s += '<br>';
+      if (!p.hasInvestigator)
+        s += "<span title='Chance of investigator appearing'>IAC: " +
+          p.getInvestigatorChance() + "%</span>, ";
+      if (p.hasInvestigator)
+        {
+          s += "<span title='Chance of investigator reveal'>IRC: " +
+            p.investigator.getKillChance() + "%</span>, ";
+          s += "<span title='Chance of lowering investigator willpower'>IWLC: " +
+            p.investigator.getGainWillChance() + "%</span>, ";
+          s += "<span title='Chance of investigator willpower raise'>IWC: " +
+            p.getLowerWillChance() + "%</span>, ";
+        }
+      if (status)
+        s += '<br>';
+      s += "<span title='Cult Power'>PWR:&nbsp;" +
+        game.director.getCultPower(p) + "</span>, ";
+      s += 'Dif: ' + p.difficulty.level;
+      s += "</span><br>";
+
+      return s;
     }
 
 
 // get element shortcut
   public static inline function e(s)
     {
-	  return js.Lib.document.getElementById(s);
-	}
+      return js.Browser.document.getElementById(s);
+    }
 }

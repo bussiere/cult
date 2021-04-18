@@ -7,130 +7,342 @@ extern class SoundManager implements Dynamic
   static function togglePause(id: Dynamic): Void;
   static function createSound(p1: Dynamic): Void;
   static function destroySound(p1: Dynamic): Void;
+  static function stopAll(): Void;
+  static function setVolume(vol: Int): Void;
 }
 
 class Music
 {
+  var ui: UI;
   public var isInited: Bool;
   var trackID: Int;
   var playlist: Array<Array<String>>;
+  var volume: Int;
 
-  public function new()
+  public function new(ui: UI)
     {
+      this.ui = ui;
+      volume = 100;
+      var v = ui.config.get('musicVolume');
+      if (v != null)
+        volume = Std.parseInt(v);
       isInited = false;
       trackID = -1;
       playlist = [
-        ["Introspective", "Occlusion", "Fluid Dynamics",
-         "http://kahvi.micksam7.com/mp3/kahvi051a_intro-fluid_dynamics.mp3",
-         "http://www.kahvi.org/releases.php?release_number=051"],
-        ["Introspective", "Occlusion", "Contain Release",
-         "http://kahvi.micksam7.com/mp3/kahvi051b_intro-contain_release.mp3",
-         "http://www.kahvi.org/releases.php?release_number=051"],
-        ["Introspective", "Occlusion", "Wave Propagation",
-         "http://kahvi.micksam7.com/mp3/kahvi051c_intro-wave_propagation.mp3",
-         "http://www.kahvi.org/releases.php?release_number=051"],
-        ["Introspective", "Analogy", "Mail Order Monsters",
-         "http://kahvi.micksam7.com/mp3/kahvi080a_intro-mail_order_monsters.mp3",
-         "http://www.kahvi.org/releases.php?release_number=080"],
-        ["Introspective", "Analogy", "Cartographer",
-         "http://kahvi.micksam7.com/mp3/kahvi080b_intro-cartographer.mp3",
-         "http://www.kahvi.org/releases.php?release_number=080"],
-        ["Introspective", "Analogy", "Gone Awry",
-         "http://kahvi.micksam7.com/mp3/kahvi080c_intro-analogy_gone_awry.mp3",
-         "http://www.kahvi.org/releases.php?release_number=080"],
-        ["Introspective", "Analogy", "Bearing Your Name",
-         "http://kahvi.micksam7.com/mp3/kahvi080d_intro-bearing_your_name.mp3",
-         "http://www.kahvi.org/releases.php?release_number=080"],
-        ["Introspective", "Crossing Borders", "Crossing Borders",
-         "http://kahvi.micksam7.com/mp3/kahvi094a_introspective-crossing_borders.mp3",
-         "http://www.kahvi.org/releases.php?release_number=094"],
-        ["Introspective", "Crossing Borders", "Medina Of Tunis",
-         "http://kahvi.micksam7.com/mp3/kahvi094b_introspective-medina_of_tunis.mp3",
-         "http://www.kahvi.org/releases.php?release_number=094"],
+        [
+          "Introspective",
+          "Occlusion",
+          "Fluid Dynamics",
+          "http://ftp.scene.org/pub/music/groups/kahvicollective/kahvi051a_intro-fluid_dynamics.ogg",
+          "http://www.kahvi.org/releases.php?release_number=051",
+        ],
+        [
+          "Introspective",
+          "Occlusion",
+          "Contain Release",
+          "http://ftp.scene.org/pub/music/groups/kahvicollective/kahvi051b_intro-contain_release.ogg",
+          "http://www.kahvi.org/releases.php?release_number=051",
+        ],
+        [
+          "Introspective",
+          "Occlusion",
+          "Wave Propagation",
+          "http://ftp.scene.org/pub/music/groups/kahvicollective/kahvi051c_intro-wave_propagation.ogg",
+          "http://www.kahvi.org/releases.php?release_number=051",
+        ],
 
-        ["Introspective", "Black Mesa Winds", "Crepuscular Activity",
-         "http://kahvi.micksam7.com/mp3/kahvi236a_introspective-crepuscular_activity.mp3",
-         "http://www.kahvi.org/releases.php?release_number=236"],
-        ["Introspective", "Black Mesa Winds", "Vanishing Point",
-         "http://kahvi.micksam7.com/mp3/kahvi236b_introspective-vanishing_point.mp3",
-         "http://www.kahvi.org/releases.php?release_number=236"],
-        ["Introspective", "Black Mesa Winds", "Black Mesa Winds",
-         "http://kahvi.micksam7.com/mp3/kahvi236c_introspective-black_mesa_winds.mp3",
-         "http://www.kahvi.org/releases.php?release_number=236"],
-        ["Introspective", "Black Mesa Winds", "Convection",
-         "http://kahvi.micksam7.com/mp3/kahvi236d_introspective-convection.mp3",
-         "http://www.kahvi.org/releases.php?release_number=236"],
-        ["Introspective", "Black Mesa Winds", "Sky City",
-         "http://kahvi.micksam7.com/mp3/kahvi236e_introspective-sky_city.mp3",
-         "http://www.kahvi.org/releases.php?release_number=236"],
-        ["Introspective", "Black Mesa Winds", "Predator Distribution",
-         "http://kahvi.micksam7.com/mp3/kahvi236f_introspective-predator_distribution.mp3",
-         "http://www.kahvi.org/releases.php?release_number=236"],
-        ["Introspective", "Black Mesa Winds", "Fahrenheit",
-         "http://kahvi.micksam7.com/mp3/kahvi236g_introspective-fahrenheit.mp3",
-         "http://www.kahvi.org/releases.php?release_number=236"],
-        ["Introspective", "Black Mesa Winds", "Riverside",
-         "http://kahvi.micksam7.com/mp3/kahvi236h_introspective-riverside.mp3",
-         "http://www.kahvi.org/releases.php?release_number=236"],
-        ["Introspective", "Black Mesa Winds", "Xerophytes",
-         "http://kahvi.micksam7.com/mp3/kahvi236i_introspective-xerophytes.mp3",
-         "http://www.kahvi.org/releases.php?release_number=236"],
-        ["Introspective", "Black Mesa Winds", "Differential Erosion",
-         "http://kahvi.micksam7.com/mp3/kahvi236j_introspective-differential_erosion.mp3",
-         "http://www.kahvi.org/releases.php?release_number=236"],
-        ["Introspective", "Black Mesa Winds", "Overwhelming Sky",
-         "http://kahvi.micksam7.com/mp3/kahvi236k_introspective-overwhelming_sky.mp3",
-         "http://www.kahvi.org/releases.php?release_number=236"],
+        [
+          "Introspective",
+          "Analogy",
+          "Mail Order Monsters",
+          "http://ftp.scene.org/pub/music/groups/kahvicollective/kahvi080a_intro-mail_order_monsters.ogg",
+          "http://www.kahvi.org/releases.php?release_number=080",
+        ],
+        [
+          "Introspective",
+          "Analogy",
+          "Cartographer",
+          "http://ftp.scene.org/pub/music/groups/kahvicollective/kahvi080b_intro-cartographer.ogg",
+          "http://www.kahvi.org/releases.php?release_number=080",
+        ],
+        [
+          "Introspective",
+          "Analogy",
+          "Gone Awry",
+          "http://ftp.scene.org/pub/music/groups/kahvicollective/kahvi080c_intro-analogy_gone_awry.ogg",
+          "http://www.kahvi.org/releases.php?release_number=080",
+        ],
+        [
+          "Introspective",
+          "Analogy",
+          "Bearing Your Name",
+          "http://ftp.scene.org/pub/music/groups/kahvicollective/kahvi080d_intro-bearing_your_name.ogg",
+          "http://www.kahvi.org/releases.php?release_number=080",
+        ],
 
+        [
+          "Introspective",
+          "Crossing Borders",
+          "Crossing Borders",
+          "http://ftp.scene.org/pub/music/groups/kahvicollective/kahvi094a_introspective-crossing_borders.ogg",
+          "http://www.kahvi.org/releases.php?release_number=094",
+        ],
+        [
+          "Introspective",
+          "Crossing Borders",
+          "Medina Of Tunis",
+          "http://ftp.scene.org/pub/music/groups/kahvicollective/kahvi094b_introspective-medina_of_tunis.ogg",
+          "http://www.kahvi.org/releases.php?release_number=094",
+        ],
 
-        ["Curious Inversions", "Whom", "Antibiotic Resistance",
-         "http://kahvi.micksam7.com/mp3/kahvi254a_curious_inversions-antibiotic_resistance.mp3",
-         "http://www.kahvi.org/releases.php?release_number=254"],
-        ["Curious Inversions", "Whom", "Antiquity",
-         "http://kahvi.micksam7.com/mp3/kahvi254b_curious_inversions-antiquity.mp3",
-         "http://www.kahvi.org/releases.php?release_number=254"],
-        ["Curious Inversions", "Whom", "Geonosian Advance",
-         "http://kahvi.micksam7.com/mp3/kahvi254c_curious_inversions-geonosian_advance.mp3",
-         "http://www.kahvi.org/releases.php?release_number=254"],
-        ["Curious Inversions", "Whom", "In The Scholar's Wake",
-         "http://kahvi.micksam7.com/mp3/kahvi254d_curious_inversions-in_the_scholars_wake.mp3",
-         "http://www.kahvi.org/releases.php?release_number=254"],
-        ["Curious Inversions", "Whom", "Predators",
-         "http://kahvi.micksam7.com/mp3/kahvi254e_curious_inversions-predators.mp3",
-         "http://www.kahvi.org/releases.php?release_number=254"],
-        ["Curious Inversions", "Whom", "Sissot Eclipse",
-         "http://kahvi.micksam7.com/mp3/kahvi254f_curious_inversions-sissot_eclipse.mp3",
-         "http://www.kahvi.org/releases.php?release_number=254"],
-        ["Curious Inversions", "Whom", "Voluntary",
-         "http://kahvi.micksam7.com/mp3/kahvi254g_curious_inversions-voluntary.mp3",
-         "http://www.kahvi.org/releases.php?release_number=254"],
-        ["Curious Inversions", "Whom", "Windslak",
-         "http://kahvi.micksam7.com/mp3/kahvi254h_curious_inversions-windslak.mp3",
-         "http://www.kahvi.org/releases.php?release_number=254"],
+        [
+          "Introspective",
+          "Black Mesa Winds",
+          "Crepuscular Activity",
+          "http://ftp.scene.org/pub/music/groups/kahvicollective/kahvi236a_introspective-crepuscular_activity.ogg",
+          "http://www.kahvi.org/releases.php?release_number=236",
+        ],
+        [
+          "Introspective",
+          "Black Mesa Winds",
+          "Vanishing Point",
+          "http://ftp.scene.org/pub/music/groups/kahvicollective/kahvi236b_introspective-vanishing_point.ogg",
+          "http://www.kahvi.org/releases.php?release_number=236",
+        ],
+        [
+          "Introspective",
+          "Black Mesa Winds",
+          "Black Mesa Winds",
+          "http://ftp.scene.org/pub/music/groups/kahvicollective/kahvi236c_introspective-black_mesa_winds.ogg",
+          "http://www.kahvi.org/releases.php?release_number=236",
+        ],
+        [
+          "Introspective",
+          "Black Mesa Winds",
+          "Convection",
+          "http://ftp.scene.org/pub/music/groups/kahvicollective/kahvi236d_introspective-convection.ogg",
+          "http://www.kahvi.org/releases.php?release_number=236",
+        ],
+        [
+          "Introspective",
+          "Black Mesa Winds",
+          "Sky City",
+          "http://ftp.scene.org/pub/music/groups/kahvicollective/kahvi236e_introspective-sky_city.ogg",
+          "http://www.kahvi.org/releases.php?release_number=236",
+        ],
+        [
+          "Introspective",
+          "Black Mesa Winds",
+          "Predator Distribution",
+          "http://ftp.scene.org/pub/music/groups/kahvicollective/kahvi236f_introspective-predator_distribution.ogg",
+          "http://www.kahvi.org/releases.php?release_number=236",
+        ],
+        [
+          "Introspective",
+          "Black Mesa Winds",
+          "Fahrenheit",
+          "http://ftp.scene.org/pub/music/groups/kahvicollective/kahvi236g_introspective-fahrenheit.ogg",
+          "http://www.kahvi.org/releases.php?release_number=236",
+        ],
+        [
+          "Introspective",
+          "Black Mesa Winds",
+          "Riverside",
+          "http://ftp.scene.org/pub/music/groups/kahvicollective/kahvi236h_introspective-riverside.ogg",
+          "http://www.kahvi.org/releases.php?release_number=236",
+        ],
+        [
+          "Introspective",
+          "Black Mesa Winds",
+          "Xerophytes",
+          "http://ftp.scene.org/pub/music/groups/kahvicollective/kahvi236i_introspective-xerophytes.ogg",
+          "http://www.kahvi.org/releases.php?release_number=236",
+        ],
+        [
+          "Introspective",
+          "Black Mesa Winds",
+          "Differential Erosion",
+          "http://ftp.scene.org/pub/music/groups/kahvicollective/kahvi236j_introspective-differential_erosion.ogg",
+          "http://www.kahvi.org/releases.php?release_number=236",
+        ],
+        [
+          "Introspective",
+          "Black Mesa Winds",
+          "Overwhelming Sky",
+          "http://ftp.scene.org/pub/music/groups/kahvicollective/kahvi236k_introspective-overwhelming_sky.ogg",
+          "http://www.kahvi.org/releases.php?release_number=236",
+        ],
 
-        ["Introspective", "Gewesen", "Gewesen",
-         "http://kahvi.micksam7.com/mp3/kahvi176a_introspective-gewesen.mp3",
-         "http://www.kahvi.org/releases.php?release_number=176"], 
-        ["Introspective", "Gewesen", "Undocumented",
-         "http://kahvi.micksam7.com/mp3/kahvi176b_introspective-undocumented.mp3",
-         "http://www.kahvi.org/releases.php?release_number=176"],
-        ["Introspective", "Gewesen", "Gewesen pt2",
-         "http://kahvi.micksam7.com/mp3/kahvi176c_introspective-gewesen_part2.mp3",
-         "http://www.kahvi.org/releases.php?release_number=176"],
-        ["Introspective", "Gewesen", "Specular Highlights",
-         "http://kahvi.micksam7.com/mp3/kahvi176d_introspective-specular_highlights.mp3",
-         "http://www.kahvi.org/releases.php?release_number=176"],
-        ["Introspective", "Gewesen", "The Leaves In The Rain",
-         "http://kahvi.micksam7.com/mp3/kahvi176e_introspective-the_leaves_in_the_rain.mp3",
-         "http://www.kahvi.org/releases.php?release_number=176"]
+        [
+          "Curious Inversions",
+          "Whom",
+          "Antibiotic Resistance",
+          "http://ftp.scene.org/pub/music/groups/kahvicollective/kahvi254a_curious_inversions-antibiotic_resistance.ogg",
+          "http://www.kahvi.org/releases.php?release_number=254",
+        ],
+        [
+          "Curious Inversions",
+          "Whom",
+          "Antiquity",
+          "http://ftp.scene.org/pub/music/groups/kahvicollective/kahvi254b_curious_inversions-antiquity.ogg",
+          "http://www.kahvi.org/releases.php?release_number=254",
+        ],
+        [
+          "Curious Inversions",
+          "Whom",
+          "Geonosian Advance",
+          "http://ftp.scene.org/pub/music/groups/kahvicollective/kahvi254c_curious_inversions-geonosian_advance.ogg",
+          "http://www.kahvi.org/releases.php?release_number=254",
+        ],
+        [
+          "Curious Inversions",
+          "Whom",
+          "In The Scholar's Wake",
+          "http://ftp.scene.org/pub/music/groups/kahvicollective/kahvi254d_curious_inversions-in_the_scholars_wake.ogg",
+          "http://www.kahvi.org/releases.php?release_number=254",
+        ],
+        [
+          "Curious Inversions",
+          "Whom",
+          "Predators",
+          "http://ftp.scene.org/pub/music/groups/kahvicollective/kahvi254e_curious_inversions-predators.ogg",
+          "http://www.kahvi.org/releases.php?release_number=254",
+        ],
+        [
+          "Curious Inversions",
+          "Whom",
+          "Sissot Eclipse",
+          "http://ftp.scene.org/pub/music/groups/kahvicollective/kahvi254f_curious_inversions-sissots_eclipse.ogg",
+          "http://www.kahvi.org/releases.php?release_number=254",
+        ],
+        [
+          "Curious Inversions",
+          "Whom",
+          "Voluntary",
+          "http://ftp.scene.org/pub/music/groups/kahvicollective/kahvi254g_curious_inversions-voluntary.ogg",
+          "http://www.kahvi.org/releases.php?release_number=254",
+        ],
+        [
+          "Curious Inversions",
+          "Whom",
+          "Windslak",
+          "http://ftp.scene.org/pub/music/groups/kahvicollective/kahvi254h_curious_inversions-windslak.ogg",
+          "http://www.kahvi.org/releases.php?release_number=254",
+        ],
+
+        [
+          "Introspective",
+          "Gewesen",
+          "Gewesen",
+          "http://ftp.scene.org/pub/music/groups/kahvicollective/kahvi176a_introspective-gewesen.ogg",
+          "http://www.kahvi.org/releases.php?release_number=176",
+        ],
+        [
+          "Introspective",
+          "Gewesen",
+          "Undocumented",
+          "http://ftp.scene.org/pub/music/groups/kahvicollective/kahvi176b_introspective-undocumented.ogg",
+          "http://www.kahvi.org/releases.php?release_number=176",
+        ],
+        [
+          "Introspective",
+          "Gewesen",
+          "Gewesen pt2",
+          "http://ftp.scene.org/pub/music/groups/kahvicollective/kahvi176c_introspective-gewesen_part2.ogg",
+          "http://www.kahvi.org/releases.php?release_number=176",
+        ],
+        [
+          "Introspective",
+          "Gewesen",
+          "Specular Highlights",
+          "http://ftp.scene.org/pub/music/groups/kahvicollective/kahvi176d_introspective-specular_highlights.ogg",
+          "http://www.kahvi.org/releases.php?release_number=176",
+        ],
+        [
+          "Introspective",
+          "Gewesen",
+          "The Leaves In The Rain",
+          "http://ftp.scene.org/pub/music/groups/kahvicollective/kahvi176e_introspective-the_leaves_in_the_rain.ogg",
+          "http://www.kahvi.org/releases.php?release_number=176",
+        ],
+
+        [
+          "Curious Inversions",
+          "Schoolyard Crows",
+          "Unfamiliar Domain",
+          "http://ftp.scene.org/pub/music/groups/kahvicollective/kahvi353a_curious_inversions-unfamiliar_domain.ogg",
+          "http://www.kahvi.org/releases.php?release_number=353",
+        ],
+        [
+          "Curious Inversions",
+          "Schoolyard Crows",
+          "Restrictions",
+          "http://ftp.scene.org/pub/music/groups/kahvicollective/kahvi353b_curious_inversions-restrictions.ogg",
+          "http://www.kahvi.org/releases.php?release_number=353",
+        ],
+        [
+          "Curious Inversions",
+          "Schoolyard Crows",
+          "Inefficient Sacrifice",
+          "http://ftp.scene.org/pub/music/groups/kahvicollective/kahvi353c_curious_inversions-inefficient_sacrifice.ogg",
+          "http://www.kahvi.org/releases.php?release_number=353",
+        ],
+        [
+          "Curious Inversions",
+          "Schoolyard Crows",
+          "Elder Grove",
+          "http://ftp.scene.org/pub/music/groups/kahvicollective/kahvi353d_curious_inversions-elder_grove.ogg",
+          "http://www.kahvi.org/releases.php?release_number=353",
+        ],
+        [
+          "Curious Inversions",
+          "Schoolyard Crows",
+          "Woven Hand",
+          "http://ftp.scene.org/pub/music/groups/kahvicollective/kahvi353e_curious_inversions-woven_hand.ogg",
+          "http://www.kahvi.org/releases.php?release_number=353",
+        ],
+        [
+          "Curious Inversions",
+          "Schoolyard Crows",
+          "Eccentric Structures",
+          "http://ftp.scene.org/pub/music/groups/kahvicollective/kahvi353f_curious_inversions-eccentric_structures.ogg",
+          "http://www.kahvi.org/releases.php?release_number=353",
+        ],
+        [
+          "Curious Inversions",
+          "Schoolyard Crows",
+          "Fetter",
+          "http://ftp.scene.org/pub/music/groups/kahvicollective/kahvi353g_curious_inversions-fetter.ogg",
+          "http://www.kahvi.org/releases.php?release_number=353",
+        ],
+        [
+          "Curious Inversions",
+          "Schoolyard Crows",
+          "Unit 731",
+          "http://ftp.scene.org/pub/music/groups/kahvicollective/kahvi353h_curious_inversions-unit_731.ogg",
+          "http://www.kahvi.org/releases.php?release_number=353",
+        ],
+        [
+          "Curious Inversions",
+          "Schoolyard Crows",
+          "Symmetric Immortality",
+          "http://ftp.scene.org/pub/music/groups/kahvicollective/kahvi353i_curious_inversions-symmetric_immortality.ogg",
+          "http://www.kahvi.org/releases.php?release_number=353",
+        ],
       ];
-    }
 
+#if electron
+      // local music files
+      for (row in playlist)
+        {
+          row[3] = StringTools.replace(row[3],
+            'http://ftp.scene.org/pub/music/groups/kahvicollective/',
+            'data/music/');
+          row[3] = StringTools.replace(row[3], '.ogg', '.mp3');
 
-// init player
-  public function init()
-    {
-      isInited = true;
+        }
+//      trace(playlist);
+#end
     }
 
 
@@ -138,7 +350,7 @@ class Music
   public function random()
     {
       SoundManager.destroySound('music');
-      
+
       while (true)
         {
           var t = Std.int(Math.random() * (playlist.length - 1));
@@ -148,12 +360,17 @@ class Music
               break;
             }
         }
-//      trace(playlist[trackID][3]);
-      
+/*
+      trackID++;
+      if (trackID >= playlist.length)
+        trackID = 0;
+      trace(playlist[trackID][3]);
+*/
+
       SoundManager.createSound({
         id: 'music',
         url: playlist[trackID][3],
-        volume: 100,
+        volume: volume,
       });
 
       SoundManager.play('music', { onfinish: random });
@@ -166,19 +383,63 @@ class Music
     }
 
 
+// first start - checks for config variable
+  public function start()
+    {
+      var val = ui.config.get('music');
+      if (val == null || val == '0')
+        return;
+
+      play();
+    }
+
+
+// increase volume
+  public function increaseVolume()
+    {
+      var v = volume;
+      v += 10;
+      if (v > 100) 
+        v = 100;
+      if (v == volume)
+        return;
+      volume = v;
+      ui.config.set('musicVolume', '' + volume);
+      SoundManager.setVolume(volume);
+    }
+
+
+// decrease volume
+  public function decreaseVolume()
+    {
+      var v = volume;
+      v -= 10;
+      if (v < 0)
+        v = 0;
+      if (v == volume)
+        return;
+      volume = v;
+      ui.config.set('musicVolume', '' + volume);
+      SoundManager.setVolume(volume);
+    }
+
+
 // start playing
   public function play()
     {
+      SoundManager.stopAll();
       if (trackID == -1)
         random();
       else SoundManager.play('music', { onfinish: random });
+      ui.config.set('music', '1');
     }
 
 
 // stop playing
   public function stop()
     {
-      SoundManager.stop('music');
+      SoundManager.stopAll();
+      ui.config.set('music', '0');
     }
 
 

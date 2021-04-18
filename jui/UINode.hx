@@ -1,4 +1,6 @@
 // node ui
+import js.html.CanvasRenderingContext2D;
+import js.html.CanvasElement;
 
 class UINode
 {
@@ -22,76 +24,89 @@ class UINode
 
 
 // paint node on map
-  public function paint(ctx: Dynamic)
+  public function paint(ctx: CanvasRenderingContext2D)
     {
       // node not visible to player
       if (!node.isVisible(game.player))
         return;
 
       // node out of view rectangle
-      if (node.x < ui.map.viewRect.x - 20 ||
-          node.y < ui.map.viewRect.y - 20 ||
-          node.x > ui.map.viewRect.x + ui.map.viewRect.w ||
-          node.y > ui.map.viewRect.y + ui.map.viewRect.h)
+      if (!inViewRect(UI.vars.markerWidth))
         return;
+//      game.startTimer('node paint');
 
       var key = '';
       var xx = node.x, yy = node.y,
-        hlx = node.x - 10, hly = node.y - 10,
+//        hlx: Float = node.x - 10, hly: Float = node.y - 10,
+        hlx: Float = node.x, hly: Float = node.y,
         tx = node.x + 4, ty = node.y + 14;
       var text = '';
       var textColor = 'white';
 
       // get power char
       var isI = false, is1 = false;
-      for (i in 0...Game.numPowers)
+      var cnt = 0;
+      for (i in 0...Game.numFullPowers)
         if (node.power[i] > 0)
           {
+            cnt++;
             text = Game.powerShortNames[i];
-            textColor = UI.powerColors[i];
+            textColor = UI.getVar('--power-color-' + i);
             isI = false;
             if (Game.powerShortNames[i] == "I")
               isI = true;
           }
+      if (cnt > 1)
+        {
+          text = Game.powerShortNames[4];
+          textColor = UI.getVar('--power-color-4');
+        }
+      if (node.type == 'artifact')
+        {
+          isI = false;
+          text = 'A';
+          textColor = UI.getVar('--artifact-color');
+        }
 
       // get bg and node char
       if (node.owner != null)
         {
 //          key = "cult" + node.owner.id;
           key = 'c';
-          text = "" + (node.level + 1);
+          text = '' + (node.level + 1);
           textColor = 'white';
           if (node.sect != null)
             text = 'S';
           if (!node.isKnown[game.player.id])
             text = '?';
-
         }
       else key = "neutral";
 
       // different borders
       var dd = 0;
+      tempd = 0;
       temph = 17;
-	  if (node.isGenerator)
-		{
+      if (node.isGenerator)
+        {
           key += "g";
           dd = 2;
-
-          for (p in game.cults)
-            if (p.origin == node && !p.isDead && node.isKnown[game.player.id])
-              {
-//                key = "origin" + p.id;
-                key = 'o';
-                dd = 4;
-                break;
-              }
-          if (node.isProtected)
-            key += "p";
-          xx -= dd;
-          yy -= dd;
-          temph += dd * 2;
-          tempd = dd;
         }
+
+      for (p in game.cults)
+        if (p.origin == node && !p.isDead &&
+            node.isKnown[game.player.id])
+          {
+            key = 'o';
+            dd = 4;
+            break;
+          }
+      if (node.isProtected)
+        key += "p";
+      xx -= dd;
+      yy -= dd;
+      temph += dd * 2;
+      tempd = dd;
+
       if (isI) // "I" symbol needs to be centered
         tx += 2;
 
@@ -106,90 +121,258 @@ class UINode
       for (n in game.player.highlightedNodes)
         if (n == node)
           {
-//            var img = ui.map.images.get('hl');
-//            ctx.drawImage(img, hlx, hly);
-            ctx.drawImage(ui.map.nodeImage,
-              0, 167, 37, 37,
-              hlx, hly, 37, 37);
+            if (UI.classicMode)
+              ctx.drawImage(ui.map.nodeImage,
+                0, 167, 37, 37,
+                hlx - 10, hly - 10, 37, 37);
+            else
+              {
+                // rectangle animation
+                var img = getImage();
+                hlx -= 0.5 * ui.map.highlightZoom * ui.map.nodeHL.width;
+                hlx += 0.5 * img.width;
+                hly -= 0.5 * ui.map.highlightZoom * ui.map.nodeHL.height;
+                hly += 0.5 * img.height;
+
+                ctx.drawImage(ui.map.nodeHL,
+                  hlx * ui.map.zoom,
+                  hly * ui.map.zoom,
+                  ui.map.nodeHL.width * ui.map.zoom * ui.map.highlightZoom,
+                  ui.map.nodeHL.height * ui.map.zoom * ui.map.highlightZoom);
+              }
             break;
           }
 
-      // paint node image
-/*      
-      var img = ui.map.images.get(key);
-      if (img == null)
+      // paint node images
+      if (UI.classicMode)
         {
-          trace('img bug: ' + key);
-          return;
-        }
-      ctx.drawImage(img, xx, yy);
-*/   
-      var a: Array<Int> = Reflect.field(imageKeys, key);
-      var y0 = a[0];
-      var w = a[1];
-      var x0 = (node.owner != null ? node.owner.id * w : 0);
-      ctx.drawImage(ui.map.nodeImage,
-        x0, y0, w, w,
-        xx, yy, w, w);
+          var a: Array<Int> = Reflect.field(imageKeys, key);
+          var y0 = a[0];
+          var w = a[1];
+          var x0 = (node.owner != null ? node.owner.id * w : 0);
+          ctx.drawImage(ui.map.nodeImage,
+            x0, y0, w, w,
+            xx, yy, w, w);
+//          ctx.fillStyle = 'red';
+//          ctx.fillRect(xx, yy, 20, 20);
 
-      // paint node symbol
-      ctx.fillStyle = textColor;
-      ctx.fillText(text, tx, ty);
+          // paint node symbol
+          ctx.fillStyle = textColor;
+          ctx.fillText(text, tx, ty);
+          if (node.type == 'artifact')
+            {
+              var art: artifacts.ArtifactNode = cast node;
+              ctx.fillText('' + art.turns, tx + 15, ty + 8);
+            }
+        }
+      else
+        {
+          if (node.owner == null)
+            text = '-';
+//          ctx.fillStyle = 'red';
+//          ctx.fillRect(xx, yy, 52, 52);
+
+          // background
+          var img = getImage();
+          ctx.drawImage(img, xx * ui.map.zoom, yy * ui.map.zoom,
+            img.width * ui.map.zoom,
+            img.height * ui.map.zoom);
+
+          // node icon
+          paintIcon(ctx, xx, yy, key);
+
+          // resource to acquire
+          if (node.owner != game.player &&
+              !game.options.getBool('mapAdvancedMode') &&
+              (node.isKnown[game.player.id] || node.owner == null))
+            {
+              var idx = -1;
+              for (i in 0...Game.numFullPowers)
+                if (node.power[i] > 0)
+                  {
+                    if (idx == -1)
+                      idx = i;
+                    else idx = Game.numFullPowers;
+                  }
+              var img = ui.map.powerImages[idx];
+              ctx.drawImage(img,
+                (xx + 1) * ui.map.zoom, yy * ui.map.zoom,
+                img.width * ui.map.zoom,
+                img.height * ui.map.zoom);
+            }
+
+          // level text
+          paintLevel(ctx, xx, yy, text);
+        }
 
       tempx = xx;
       tempy = yy;
+//      game.endTimer('node paint');
     }
 
+// paint node icon (can be overriden)
+  public function paintIcon(ctx: CanvasRenderingContext2D,
+      xx: Int, yy: Int, key: String)
+    {
+      var imageID = node.imageID;
+      if (key == 'o' || key == 'op') // origin
+        imageID = 14;
+      var img = ui.map.jobImages[imageID];
+      ctx.drawImage(img,
+        (xx + jobInfo[imageID].x) * ui.map.zoom,
+        (yy + jobInfo[imageID].y + 6) * ui.map.zoom,
+        img.width * ui.map.zoom,
+        img.height * ui.map.zoom);
+    }
+
+// paint node level (can be overriden)
+  public function paintLevel(ctx: CanvasRenderingContext2D,
+      xx: Int, yy: Int, text: String)
+    {
+      var img = ui.map.textImages[MapUI.textToIndex[text]];
+      ctx.drawImage(img,
+        (xx + 39) * ui.map.zoom,
+        (yy + 1) * ui.map.zoom,
+        img.width * ui.map.zoom,
+        img.height * ui.map.zoom);
+    }
 
 // paint advanced node info
-  public function paintAdvanced(ctx: Dynamic)
+  public function paintAdvanced(ctx: CanvasRenderingContext2D)
     {
       // node not visible to player
       if (!node.isVisible(game.player))
         return;
 
       // node out of view rectangle
-      if (node.x < ui.map.viewRect.x - 20 ||
-          node.y < ui.map.viewRect.y - 20 ||
-          node.x > ui.map.viewRect.x + ui.map.viewRect.w ||
-          node.y > ui.map.viewRect.y + ui.map.viewRect.h)
+      if (!inViewRect(UI.vars.markerWidth))
         return;
 
-      // chance to gain node
+      ctx.textAlign = 'left';
+
+      // draw production indicators
+      var productionIndicatorWidth = 6;
+      var productionIndicatorHeight = 2;
+      if (node.isGenerator && !node.isTempGenerator)
+        if (node.owner != game.player ||
+            node.isKnown[game.player.id])
+          {
+            var j = 0;
+            for (i in 0...Game.numFullPowers)
+              if (node.powerGenerated[i] > 0)
+                {
+                  if (node.powerGenerated[i] == 0)
+                    continue;
+                  ctx.fillStyle = ui.map.powerColors[i];
+                  if (UI.classicMode)
+                    ctx.fillRect(
+                      tempx + (tempd - 1) +
+                      i * (productionIndicatorWidth + 1),
+                      tempy - productionIndicatorHeight,
+                      productionIndicatorWidth,
+                      productionIndicatorHeight);
+                  else 
+                    {
+                      ctx.shadowColor = 'black';
+                      ctx.fillText(roman[node.powerGenerated[i]],
+                        ui.map.zoom * (tempx + 62),
+                        ui.map.zoom * (tempy + 26 + j * 16));
+                      ctx.shadowColor = 'transparent';
+                    }
+                  j++;
+                }
+          }
+
       if (node.owner != game.player)
         {
+          // chance to gain node
           var ch = game.player.getGainChance(node);
-          ui.map.paintText(ctx, [ Std.int(ch / 10), ch % 10, 10 ], 0,
-             tempx + tempd + 1, tempy - 11);
-/*        
-          ctx.fillStyle = 'white';
-          ctx.fillText(game.player.getGainChance(node) + '%', tempx - 3, tempy - 4);
-*/          
+          if (UI.classicMode)
+            ui.map.paintText(ctx, [ Std.int(ch / 10), ch % 10, 10 ], 0,
+               tempx + tempd + 1, tempy - 11);
+          else
+            {
+              ctx.fillStyle = "#402b2b";
+              ctx.shadowOffsetX = 1;
+              ctx.shadowOffsetY = 1;
+              ctx.shadowBlur = 1;
+              ctx.shadowColor = "#84aa9d";
+              ctx.fillText(ch + '%',
+                ui.map.zoom * (tempx + 13),
+                ui.map.zoom * (tempy - 4));
+              ctx.shadowColor = 'transparent';
+            }
 
+          // resources to conquer
           if (node.owner == null || node.isKnown[game.player.id])
             {
-              for (i in 0...Game.numPowers)
-                if (node.power[i] > 0)
-                  ui.map.paintText(ctx, [ node.power[i] ], i + 1,
-                    tempd + tempx + i * 6, tempy + temph + 3);
-                else
-                  ui.map.paintText(ctx, [ 10 ], i + 1,
-                    tempd + tempx + i * 6, tempy + temph + 3);
-/*            
-              for (i in 0...Game.numPowers)
-                if (node.power[i] > 0)
-                  {
-                    ctx.fillStyle = UI.powerColors[i];
-                    ctx.fillText(node.power[i], tempd + tempx - 3 + i * 7, tempy + temph + 11);
-                  }
-                else
-                  {
-                    ctx.fillStyle = '#333';
-                    ctx.fillText('-', tempd + tempx - 3 + i * 7, tempy + temph + 11);
-                  }
-*/                  
+              var j = 0;
+              for (i in 0...node.power.length)
+                {
+                  if (node.power[i] == 0)
+                    continue;
+                  if (UI.classicMode)
+                    {
+                      if (node.power[i] > 0)
+                        ui.map.paintText(ctx, [ node.power[i] ], j + 1,
+                          tempd + tempx + j * 6, tempy + temph + 3);
+                      else
+                        ui.map.paintText(ctx, [ 10 ], i + 1,
+                          tempd + tempx + j * 6, tempy + temph + 3);
+                    }
+                  else
+                    {
+                      ctx.shadowColor = 'black';
+  /*
+                      ctx.beginPath();
+                      ctx.arc(tempd + tempx - 13,
+                        tempy + temph - 5 + j * 13, 5, 0, 2 * Math.PI);
+                      ctx.fillStyle = ui.map.powerColors[i];
+                      ctx.fill();
+  */
+                      ctx.fillStyle = ui.map.powerColors[i];
+                      var s = roman[node.power[i]];
+                      var w = ctx.measureText(s).width;
+                      ctx.fillText(s,
+                        ui.map.zoom * (tempx - 4) - w,
+                        ui.map.zoom * (tempy + 26 + j * 16));
+                      ctx.shadowColor = 'transparent';
+                    }
+                  j++;
+                }
             }
         }
+    }
+
+
+// get node icon for modern mode
+  function getImage(): CanvasElement
+    {
+      var idx = 8;
+      if (node.owner != null)
+        idx = node.owner.id;
+      var img = (node.isGenerator ?
+        ui.map.nodeImagesGenerator[idx] :
+        ui.map.nodeImages[idx]);
+      return img;
+    }
+
+
+// check if this node is in view
+  public function inViewRect(border: Int): Bool
+    {
+      if (node.x * ui.map.zoom <
+            (ui.map.viewRect.x - border) * ui.map.zoom ||
+          node.y * ui.map.zoom <
+            (ui.map.viewRect.y - border) * ui.map.zoom ||
+          node.x * ui.map.zoom >
+            (ui.map.viewRect.x * ui.map.zoom + ui.map.viewRect.w +
+             UI.vars.markerWidth * ui.map.zoom) ||
+          node.y * ui.map.zoom >
+            (ui.map.viewRect.y + ui.map.viewRect.h +
+             UI.vars.markerHeight * ui.map.zoom))
+        return false;
+      return true;
     }
 
 
@@ -206,14 +389,16 @@ class UINode
         return '';
 
       var s = "";
+      if (Game.isDebug)
+        s += 'Node ' + node.id + ' (' + node.x + ',' + node.y + ')<br>';
       if (Game.debugNear)
         {
-          s += "Node " + node.id + "<br>";
+          s += 'Links: ';
           for (n in node.links)
-            s += n.id + "<br>";
+            s += n.id + " ";
           if (node.isProtected)
-            s += "Protected<br>";
-          else s += "Unprotected<br>";
+            s += "<br>Protected<br>";
+          else s += "<br>Unprotected<br>";
         }
 
       if (Game.debugVis)
@@ -227,34 +412,44 @@ class UINode
       for (i in 0...game.difficulty.numCults)
         s += node.isKnown[i] + "<br>";
 */
-      if (node.owner != null && !node.owner.isInfoKnown[game.player.id] && !node.isKnown[game.player.id] &&
+      if (node.owner != null &&
+          !node.owner.isInfoKnown[game.player.id] &&
+          !node.isKnown[game.player.id] &&
           node.owner != game.player)
         {
-          s += "<span style='color:#ff8888'>Use sect to gather cult<br>or node information.</span><br>";
-//          s += 'Use sects to gather cult<br>or node information.<br>';
+          s += "<span class=shadow style='color:var(--node-error-color)'>Use sects to gather cult<br>or node information.</span><br>";
           if (node.owner == null || node.owner != game.player)
-            s += "<br>Chance of success: <span style='color:white'>" +
-              game.player.getGainChance(node) + "%</span><br>";
+            {
+
+              s += "<br>Chance of success: <span class=shadow style='color:white'>" +
+                game.player.getGainChance(node) + "%</span><br>";
+              if (node.owner != null &&
+                  !node.owner.isInfoKnown[game.player.id])
+                s += "<span class=shadow style='color:var(--node-error-color)'>(-20%, no cult information)</span><br>";
+              if (!node.isKnown[game.player.id])
+                s += "<span class=shadow style='color:var(--node-error-color)'>(-10%, no node information)</span><br>";
+            }
           return s;
         }
 
       if (node.owner != null) // cult info
         {
-          s += "<span style='color:" + UI.cultColors[node.owner.id] + "'>" +
-            node.owner.name + "</span><br>";
-          if (node.owner.origin == node && node.isKnown[game.player.id])
-            s += "<span style='color:" + UI.cultColors[node.owner.id] +
+          s += UI.cultName(node.owner.id, node.owner.info) + '<br>';
+          if (node.owner.origin == node &&
+              node.isKnown[game.player.id])
+            s += "<span class=shadow style='color:" +
+              UI.vars.cultColors[node.owner.id] +
               "'>The Origin</span><br>";
           s += "<br>";
         }
 
       // name and job
-      s += "<span style='color:white'>" + node.name + "</span><br>";
+      s += "<span class=shadow style='color:white'>" + node.name + "</span><br>";
       s += node.job + "<br>";
 
       if (node.owner != null) // follower level
-        s += "<b>" + (node.isKnown[game.player.id] ? Game.followerNames[node.level] : 'Unknown') + 
-          "</b> <span style='color:white'>L" +
+        s += "<b>" + (node.isKnown[game.player.id] ? Game.followerNames[node.level] : 'Unknown') +
+          "</b> <span class=shadow style='color:white'>L" +
           (node.isKnown[game.player.id] ? '' + (node.level + 1) : '?') + "</span><br>";
       s += "<br>";
 
@@ -267,13 +462,13 @@ class UINode
 
           // check for power
           if (node.isKnown[game.player.id] || node.owner == null)
-            for (i in 0...Game.numPowers)
+            for (i in 0...Game.numFullPowers)
               if (game.player.power[i] < node.power[i])
                 {
-                  s += "<span style='color:#ff8888'>Not enough " + Game.powerNames[i] + "</span><br>";
+                  s += "<span class=shadow style='color:var(--node-error-color)'>Not enough " + Game.powerNames[i] + "</span><br>";
                   br = true;
                 }
-              
+
           // check for links
           if (node.isGenerator && node.owner != null)
             {
@@ -284,7 +479,7 @@ class UINode
                   cnt++;
 
               if (cnt >= 3)
-                s += "<span style='color:#ff8888'>Generator has " + cnt + " links</span><br>";
+                s += "<span class=shadow style='color:var(--node-error-color)'>Generator has " + cnt + " links</span><br>";
             }
 
           if (br)
@@ -293,26 +488,40 @@ class UINode
 
       // amount of power to conquer
       if (node.owner == null || node.isKnown[game.player.id])
-        for (i in 0...Game.numPowers)
+        for (i in 0...node.power.length)
           if (node.power[i] > 0)
-            {
-              s += "<b style='color:" + UI.powerColors[i] + "'>" +
-                Game.powerNames[i] + "</b> " + node.power[i] + "<br>";
-            }
+            s += '<b>' + UI.powerName(i) + '</b> ' + node.power[i] + '<br>';
       if (node.owner == null || node.owner.isAI)
-        s += "Chance of success: <span style='color:white'>" +
-          game.player.getGainChance(node) + "%</span><br>";
+        {
+          s += "Chance of success: <span class=shadow style='color:white'>" +
+            game.player.getGainChance(node) + "%</span><br>";
+          if (node.owner != null && !node.isKnown[game.player.id])
+            s += "<span class=shadow style='color:var(--node-error-color)'>(-10%, no node information)</span><br>";
+        }
 
-	  if (node.isGenerator && (node.owner == null || node.isKnown[game.player.id]))
-		{
-		  s += "<br>Generates:<br>";
-	      for (i in 0...Game.numPowers)
-     	    if (node.powerGenerated[i] > 0)
-          	  s += "<b style='color:" + UI.powerColors[i] + "'>" +
-                Game.powerNames[i] + "</b> " +
-			    node.powerGenerated[i] + "<br>";
+      if (node.isGenerator && (node.owner == null || node.isKnown[game.player.id]))
+        {
+          s += "<br>Generates:<br>";
+          for (i in 0...Game.numFullPowers)
+             if (node.powerGenerated[i] > 0)
+               s += '<b>' + UI.powerName(i) + '</b> ' + node.powerGenerated[i] + '<br>';
           if (node.isTempGenerator)
             s += "Temporary<br>";
+        }
+
+      // debug info
+      if (Game.isDebug)
+        {
+          // find closest node distance
+          var d = 1000000.0;
+          for (n in game.nodes)
+            if (n != this.node)
+              {
+                var dx = n.distance(this.node);
+                if (dx < d)
+                  d = dx;
+              }
+          s += 'DBG dist nearest: ' + Std.int(d) + '<br>';
         }
 
       return s;
@@ -338,4 +547,117 @@ class UINode
       neutral: [ 125, 17 ],
       neutralg: [ 144, 21 ],
     }
+
+  public static var jobInfo = [
+    {
+      img: "char-official-male.png",
+      x: 3,
+      y: 0,
+      w: 52,
+      h: 52,
+    },
+    {
+      img: "char-official-female.png",
+      x: 2,
+      y: 0,
+      w: 52,
+      h: 52,
+    },
+    {
+      img: "char-corporate-male.png",
+      x: 8,
+      y: 0,
+      w: 52,
+      h: 52,
+    },
+    {
+      img: "char-corporate-female.png",
+      x: -5,
+      y: 0,
+      w: 52,
+      h: 52,
+    },
+    {
+      img: "char-professor-male.png",
+      x: 1,
+      y: 3,
+      w: 52,
+      h: 52,
+    },
+    {
+      img: "char-professor-female.png",
+      x: 8,
+      y: 0,
+      w: 52,
+      h: 52,
+    },
+    {
+      img: "char-army-male.png",
+      x: -1,
+      y: 0,
+      w: 52,
+      h: 52,
+    },
+    {
+      img: "char-army-female.png",
+      x: -4,
+      y: 0,
+      w: 52,
+      h: 52,
+    },
+    {
+      img: "char-scientist-male.png",
+      x: -4,
+      y: 0,
+      w: 52,
+      h: 52,
+    },
+    {
+      img: "char-scientist-female.png",
+      x: -2,
+      y: 0,
+      w: 52,
+      h: 52,
+    },
+    {
+      img: "char-politician-male.png",
+      x: -2,
+      y: 0,
+      w: 52,
+      h: 52,
+    },
+    {
+      img: "char-politician-female.png",
+      x: 5,
+      y: 0,
+      w: 52,
+      h: 52,
+    },
+    {
+      img: "char-media-male.png",
+      x: 8,
+      y: 0,
+      w: 52,
+      h: 52,
+    },
+    {
+      img: "char-media-female.png",
+      x: -5,
+      y: 0,
+      w: 52,
+      h: 52,
+    },
+    {
+      img: "char-origin.png",
+      x: -4,
+      y: -10,
+      w: 68,
+      h: 61,
+    },
+  ];
+
+  static var roman = [
+    '', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X',
+    'XI', 'XII', 'XIII', 'XIV', 'XV'
+  ];
 }
