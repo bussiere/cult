@@ -122,7 +122,8 @@ class Game
 
 
 // restart a game
-  public function restart(?newDif: DifficultyInfo)
+  public function restart(?newDif: DifficultyInfo = null,
+      ?playerCultID: Int = 0)
     {
       startTS = Sys.time();
       isNeverStarted = false;
@@ -133,7 +134,9 @@ class Game
         ui.alert("Welcome.<br><br>If this is your first time playing, do not hesitate to " +
           "consult the Manual if you have any questions. " +
           "We are not responsible for horrific deaths caused by ignoring the " +
-          "Manual. You have been warned.");
+          "Manual. You have been warned.", {
+            sound: 'window-open',
+          });
 #if !electron
       ui.alert('Now available on Steam!<br><br><iframe src="https://store.steampowered.com/widget/1237260/" frameborder="0" style="padding-left:3%" width="95%" height="190"></iframe>', {
         h: 320
@@ -170,7 +173,7 @@ class Game
         {
           var p = null;
           var id = this.lastCultID++;
-          var infoID = 0;
+          var infoID = playerCultID;
           if (i > 0)
             while (true)
               {
@@ -485,6 +488,7 @@ class Game
               w: 400,
               h: 125,
               shadowOpacity: 1,
+              sound: 'window-open',
             });
         }
 
@@ -719,7 +723,7 @@ class Game
     }
 
 // main function
-  static var instance: Game;
+  public static var instance: Game;
   static function main()
     {
       instance = new Game();
@@ -746,7 +750,11 @@ class Game
   public static var powerConversionCost: Array<Int> = [2, 2, 2, 1];
   public static var willPowerCost: Int = 2;
 
-  public static var version = "v7.0"; // game version
+#if demo
+  public static var version = "<span style='font-size:smaller'>DEMO</span>"; // game version
+#else
+  public static var version = "v8.0"; // game version
+#end
   public static var followerLevels = 3; // number of follower levels
   public static var numPowers = 3; // number of basic powers
   public static var numFullPowers = 4; // number of basic powers + 1

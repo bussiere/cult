@@ -4,25 +4,27 @@ import js.Browser;
 import js.html.Element;
 import js.html.DivElement;
 import js.html.InputElement;
+import js.html.SelectElement;
+import js.html.OptionElement;
 import Flags;
 
 class NewGameMenu extends Window
 {
   var note: Element;
+  var cult: SelectElement;
 
   public function new(uivar: UI, gvar: Game)
     {
 #if electron
-      var h = 354;
+      var h = 394;
 #else
-      var h = 334;
+      var h = 374;
 #end
       super(uivar, gvar, 'newGameMenu', 420, h, 20);
 
       close.innerHTML = 'CANCEL';
       close.style.left = '67%';
-      var start = Tools.closeButton(window);
-      start.onclick = onStart;
+      var start = Tools.closeButton(window, onStart);
       start.innerHTML = 'START';
       start.style.left = '30%';
 
@@ -48,6 +50,36 @@ class NewGameMenu extends Window
       contents.className = 'uiText';
       contents.style.userSelect = 'none';
       window.appendChild(contents);
+
+      // cult name
+      var row0 = Browser.document.createElement("div");
+      row0.style.display = 'flex';
+      contents.appendChild(row0);
+      var cultLabel = Browser.document.createElement("div");
+      cultLabel.innerHTML = 'Cult';
+      cultLabel.style.padding= '0px 12px 0px 11px';
+      row0.appendChild(cultLabel);
+      cult = cast Browser.document.createElement("select");
+      cult.className = 'selectOption';
+      cult.style.fontSize = '20px';
+      row0.appendChild(cult);
+      var idx = 0;
+      for (c in Static.cults)
+        {
+          var opt: OptionElement =
+            cast Browser.document.createElement("option");
+          opt.value = '' + (idx++);
+          opt.innerHTML = c.name;
+          cult.appendChild(opt);
+        }
+      cult.onmouseout = function(event)
+        {
+          note.innerHTML = '';
+        }
+      cult.onmouseover = function(event)
+        {
+          note.innerHTML = 'The choice of cult is purely cosmetical.';
+        }
 
       // difficulty
       var row1 = Browser.document.createElement("div");
@@ -93,6 +125,9 @@ class NewGameMenu extends Window
       row2.style.textAlign = 'center';
       row2.style.padding = '5px 0px 5px';
       row2.innerHTML = 'Flags';
+#if demo
+      row2.style.color = UI.getVar('--text-color-disabled');
+#end
       for (f in Reflect.fields(game.flags))
         {
           if (f == 'artifacts')
@@ -107,6 +142,9 @@ class NewGameMenu extends Window
       row3.style.textAlign = 'center';
       row3.style.padding = '5px 0px 5px';
       row3.innerHTML = 'Expansions';
+#if demo
+      row3.style.color = UI.getVar('--text-color-disabled');
+#end
       addCheckbox(contents, 'startFlag_artifacts',
         FlagStatic.names['artifacts'],
         FlagStatic.notes['artifacts']);
@@ -131,7 +169,11 @@ class NewGameMenu extends Window
       var row = Browser.document.createElement("label");
       contents.appendChild(row);
       row.style.display = 'flex';
+#if demo
+      row.style.cursor = 'not-allowed';
+#else
       row.style.cursor = 'hand';
+#end
       var cb: InputElement = cast Browser.document.createElement("input");
       row.appendChild(cb);
       cb.id = key;
@@ -153,6 +195,9 @@ class NewGameMenu extends Window
               t.checked = cb.checked;
             }
         }
+#if demo
+      cb.disabled = true;
+#end
       var title = Browser.document.createElement("div");
       row.appendChild(title);
       title.innerHTML = name;
@@ -164,6 +209,9 @@ class NewGameMenu extends Window
         {
           note.innerHTML = text;
         }
+#if demo
+      title.style.color = UI.getVar('--text-color-disabled');
+#end
     }
 
   override function onShow()
@@ -197,17 +245,19 @@ class NewGameMenu extends Window
       onNewGameReal(dif);
     }
 
-
 // start for real
   function onNewGameReal(dif: Int)
     {
+      // selected cult
+      var opt: OptionElement = cast cult.selectedOptions.item(0);
+      var cultID = Std.parseInt(opt.value);
 /*
       trace(dif);
       trace(game.flags);
 */
       ui.mainMenu.onClose(null);
       onClose(null);
-      ui.newGame(dif);
+      ui.newGame(dif, null, cultID);
     }
 
 // key press

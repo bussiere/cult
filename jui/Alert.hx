@@ -40,6 +40,8 @@ class Alert
       Browser.document.body.removeChild(bg);
       isVisible = false;
 
+      ui.sound.stopOnClose();
+
       // messages in queue - show next message
       if (queue.length > 0)
         {
@@ -68,6 +70,10 @@ class Alert
 
 
 // show window
+// NOTE: height 90px - one line
+// h: UI.getVarInt('--alert-window-min-height'),
+// NOTE: height 110px - two lines
+// h: UI.getVarInt('--alert-window-height-2lines'),
   public function show(s: String, opts: _AlertOptions)
     {
       // alert window already visible, push to queue
@@ -126,27 +132,25 @@ class Alert
       // yes/no dialog
       if (opts.yesNo != null)
         {
-          var yes = Tools.closeButton(window);
+          var yes = Tools.closeButton(window, onYes);
           yes.innerHTML = 'Yes';
           yes.style.left = '33%';
-          yes.onclick = onYes;
           yesFunc = opts.onYes;
 
-          var no = Tools.closeButton(window);
+          var no = Tools.closeButton(window, function(e) {
+            if (opts.onNo != null)
+              opts.onNo();
+            onClose(e);
+          });
           no.innerHTML = 'No';
           no.style.left = '66%';
           if (opts.onNo != null)
-            {
-              no.onclick = onNo;
-              noFunc = opts.onNo;
-            }
-          else no.onclick = onClose;
+            noFunc = opts.onNo;
         }
       else
         {
           // close button
-          var close = Tools.closeButton(window);
-          close.onclick = onClose;
+          var close = Tools.closeButton(window, onClose);
           if (queue.length > 0)
             close.innerHTML = 'Next';
         }
@@ -169,6 +173,8 @@ class Alert
       border.style.display = 'inline';
       bg.style.display = 'inline';
       isVisible = true;
+      if (opts.sound != null)
+        ui.sound.play(opts.sound);
     }
 }
 
@@ -184,5 +190,6 @@ typedef _AlertOptions = {
   @:optional var onYes: Void -> Void;
   @:optional var onNo: Void -> Void;
   @:optional var img: String;
+  @:optional var sound: String;
 }
 

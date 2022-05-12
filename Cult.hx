@@ -432,7 +432,11 @@ class Cult
         {
           if (hasInvestigator)
             ui.msg('Investigator willpower lowered.');
-          else ui.msg('The investigator disappeared.');
+          else
+            {
+              ui.msg('The investigator disappeared.');
+              ui.sound.play('inv-disappear');
+            }
           ui.updateStatus();
         }
     }
@@ -546,17 +550,17 @@ class Cult
 
 
 // upgrade nodes (fupgr)
-  public function upgrade(level)
+  public function upgrade(level): Bool
     {
       // cannot upgrade
       if (!canUpgrade(level))
-        return;
+        return false;
 
       // summon
       if (level == 2)
         {
           summonStart();
-          return;
+          return true;
         }
 
       virgins -= (level + 1);
@@ -570,7 +574,7 @@ class Cult
                 (level == 0 ? 'an adept.' : 'a priest.'));
               ui.updateStatus();
             }
-          return;
+          return false;
         }
 
       awareness += level;
@@ -598,7 +602,7 @@ class Cult
       if (!ok)
         {
           trace('BUG: Cannot upgrade. No nodes found.');
-          return;
+          return false;
         }
 
       // expansions
@@ -631,6 +635,7 @@ class Cult
           if (priests >= 1)
             game.tutorial.play('gainPriest');
         }
+      return true;
     }
 
 
@@ -739,6 +744,7 @@ class Cult
             wars[p.id] = true;
           }
 
+      ui.sound.play('final-ritual-start');
       ui.alert('<h2>FINAL RITUAL STARTED</h2><div class=fluff>' +
         info.summonStart + '</div><br>' +
         fullName + ' has started the ' + ritual.name + '.', {
@@ -775,6 +781,7 @@ class Cult
     {
       if (!isAI)
         {
+          ui.sound.play('unveiling-ritual-finish');
           ui.alert('<h2>RITUAL COMPLETED</h2><div class=fluff>' +
             Static.templates['ritualUnveiling'] + '</div><br>' +
             fullName + ' has finished the ' + ritual.name +
@@ -815,7 +822,11 @@ class Cult
             Static.rituals['summoning'].name +
             '. The stars were not properly aligned. One of the high priests goes insane.';
 
-          ui.alert(msg, { w: 700, h: 400 });
+          ui.alert(msg, {
+            w: 700,
+            h: 400,
+            sound: 'final-ritual-fail',
+          });
           if (!isAI)
             {
               ui.log2(this, fullName + " has failed to perform the " +
@@ -848,8 +859,10 @@ class Cult
           var text = fullName + " has gained an origin and is no longer paralyzed.";
           ui.log2(this, text);
           if (!isAI)
-            ui.alert(text,
-              { h: UI.getVarInt('--alert-window-height-2lines') });
+            ui.alert(text, {
+              h: UI.getVarInt('--alert-window-height-2lines'),
+              sound: 'window-open',
+            });
         }
 
       // if a cult has any adepts, each turn it has a
@@ -860,10 +873,14 @@ class Cult
           investigatorTimeout == 0)
         {
           hasInvestigator = true;
-          ui.log2(this, "An investigator has found out about " + fullName + ".",
-            {
-              important: !this.isAI,
-              symbol: 'I'
+          ui.log2(this, "An investigator has found out about " + fullName + ".", {
+            important: !this.isAI,
+            symbol: 'I'
+          });
+          if (!isAI)
+            ui.alert("An investigator has found out about your cult.", {
+              h: UI.getVarInt('--alert-window-min-height'),
+              sound: 'inv-appear',
             });
           investigator = new Investigator(this, ui, game);
 
@@ -967,23 +984,20 @@ class Cult
 // can this player activate this node?
   public function canActivate(node: Node): Bool
     {
+      if (game.isFinished)
+        return false;
+
+      // tutorial: do not allow clicking nodes on first turn
+      if (!isAI && game.isTutorial && game.turns == 0)
+        return false;
+
+      if (isParalyzed)
+        return false;
+
+      // check for power
       for (i in 0...Game.numFullPowers)
         if (power[i] < node.power[i])
           return false;
-
-      return true;
-    }
-
-
-// activate node (fact) (returns result for AI stuff)
-  public function activate(node: Node): String
-    {
-      if (isParalyzed)
-        {
-          if (!isAI)
-            ui.alert("Cult is paralyzed without the Origin.");
-          return "";
-        }
 
       // check for adjacent nodes of this cult
       var ok = false;
@@ -994,14 +1008,10 @@ class Cult
             break;
           }
       if (!ok)
-        {
-          if (!isAI)
-            ui.alert("Must have an adjacent node to activate.");
-          return "";
-        }
+        return false;
 
       if (node.owner == this)
-        return "isOwner";
+        return false;
 
       // cannot gain a generator if it has 3+ active links
       if (node.isGenerator && node.owner != null)
@@ -1013,22 +1023,23 @@ class Cult
               cnt++;
 
           if (cnt >= 3)
-            {
-              if (!isAI)
-                ui.alert("Generator has " + cnt + " links.");
-              return "hasLinks";
-            }
+            return false;
         }
 
+      return true;
+    }
+
+
+// activate node (fact) (returns result for AI stuff)
+// all checks go into canActivate()  
+// except power check - necessary for AI
+  public function activate(node: Node): String
+    {
       // check for power
+      // return result needed for AI!
       for (i in 0...Game.numFullPowers)
         if (power[i] < node.power[i])
-          {
-            if (!isAI)
-              ui.alert("Not enough resources of needed type.");
-
-            return "notEnoughPower";
-          }
+          return 'notEnoughPower';
 
       // subtract power
       for (i in 0...Game.numFullPowers)
@@ -1117,8 +1128,10 @@ class Cult
           }
 
       if (!cult.isAI)
-        ui.alert(text,
-          { h: UI.getVarInt('--alert-window-height-2lines') });
+        ui.alert(text, {
+          sound: 'cult-declare-war',
+          h: UI.getVarInt('--alert-window-height-2lines'),
+        });
     }
 
 
@@ -1152,8 +1165,10 @@ class Cult
           }
 
       if (!cult.isAI)
-        ui.alert(text,
-          { h: UI.getVarInt('--alert-window-height-2lines') });
+        ui.alert(text, {
+          h: UI.getVarInt('--alert-window-height-2lines'),
+          sound: 'window-open',
+        });
     }
 
 
@@ -1217,8 +1232,15 @@ class Cult
       if (!ok)
         {
           if (nodes.length > 0)
-            ui.log2(this, "Destroying the origin of " + fullName +
-              " has left it completely paralyzed.", { symbol: 'X' });
+            {
+              if (!isAI)
+                ui.alert(fullName + ' has lost its Origin. It is now completely paralyzed.', {
+                  h: UI.getVarInt('--alert-window-height-2lines'),
+                  sound: 'cult-paralyzed',
+                });
+              ui.log2(this, "Destroying the origin of " + fullName +
+                " has left it completely paralyzed.", { symbol: 'X' });
+            }
           isParalyzed = true;
 
           if (hasInvestigator) // remove investigator
@@ -1273,8 +1295,10 @@ class Cult
       ui.log2(from, text);
       if (!isAI)
         {
-          ui.alert(text,
-            { h: UI.getVarInt('--alert-window-height-2lines') });
+          ui.alert(text, {
+            h: UI.getVarInt('--alert-window-height-2lines'),
+            sound: 'cult-gain-stash',
+          });
           ui.status.update();
         }
     }

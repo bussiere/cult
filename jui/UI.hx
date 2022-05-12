@@ -16,6 +16,7 @@ class UI
 {
   var game: Game;
   public var music: Music; // music player
+  public var sound: Sound;
 
   // ui blocks
   public var status: Status; // status panel
@@ -37,6 +38,7 @@ class UI
   public var sects: SectsInfo; // sects info block
   public var options: OptionsMenu; // options block
   public var manual: Manual; // ingame manual
+  public var score: Score; // high scores window
   public var messageWindow: Message;
   public var fullscreen: Bool;
 
@@ -96,6 +98,8 @@ class UI
       status = new Status(this, game);
       map = new MapUI(this, game);
       music = new Music(this);
+      sound = new Sound(this, game);
+      Browser.window.setTimeout(sound.init);
       mainMenu = new MainMenu(this, game);
       newGameMenu = new NewGameMenu(this, game);
       loadMenu = new LoadMenu(this, game);
@@ -106,6 +110,7 @@ class UI
       sects = new SectsInfo(this, game);
       options = new OptionsMenu(this, game);
       manual = new Manual(this, game);
+      score = new Score(this, game);
       messageWindow = new Message(this, game);
       music.onRandom = status.onMusic;
       artifacts = new artifacts.ArtifactUI(game, this);
@@ -143,6 +148,7 @@ class UI
         sects.isVisible ||
         customMenu.isVisible ||
         manual.isVisible ||
+        score.isVisible ||
         newGameMenu.isVisible ||
         options.isVisible
       );
@@ -150,29 +156,24 @@ class UI
       // windows keys
       if (loadMenu.isVisible)
         loadMenu.onKey(e);
-
       else if (saveMenu.isVisible)
         saveMenu.onKey(e);
-
       else if (mainMenu.isVisible &&
           !newGameMenu.isVisible &&
           !options.isVisible)
         mainMenu.onKey(e);
-
       else if (customMenu.isVisible)
         customMenu.onKey(e);
-
       else if (mpMenu.isVisible)
         mpMenu.onKey(e);
-
       else if (debug.isVisible)
         debug.onKey(e);
-
       else if (sects.isVisible)
         sects.onKey(e);
-
       else if (newGameMenu.isVisible)
         newGameMenu.onKey(e);
+      else if (manual.isVisible)
+        manual.onKey(e);
 
       // close current window
       else if (e.keyCode == 27 || // ESC
@@ -203,6 +204,9 @@ class UI
 
           else if (newGameMenu.isVisible)
             newGameMenu.onClose(null);
+
+          else if (score.isVisible)
+            score.onClose(null);
 
           // open main menu
           else if (e.keyCode == 27)
@@ -260,7 +264,7 @@ class UI
 
           // log
           else if (e.keyCode == 76) // L
-            top.onLog(null);
+            logWindow.show();
 
           // manual
           else if (e.keyCode == 77) // M
@@ -297,7 +301,8 @@ class UI
 
 
 // start a new game (common for all ui)
-  public function newGame(lvl: Int, ?dif: DifficultyInfo)
+  public function newGame(lvl: Int, ?dif: DifficultyInfo = null,
+      ?cultID: Int = 0)
     {
       game.isTutorial = false;
       game.difficultyLevel = lvl;
@@ -308,14 +313,14 @@ class UI
           onYes: function ()
             {
               game.isTutorial = true;
-              game.restart();
+              game.restart(null, cultID);
             },
           onNo: function ()
             {
-              game.restart();
+              game.restart(null, cultID);
             }
         });
-      else game.restart(dif);
+      else game.restart(dif, cultID);
     }
 
 
@@ -356,8 +361,12 @@ class UI
           alert('<h2>FINAL RITUAL COMPLETED</h2><div class=fluff>' +
             cult.info.summonFinish + '</div><br>' +
             cult.fullName + " has completed the " +
-            Static.rituals['summoning'].name + '.',
-            { w: 700, h: 440 });
+            Static.rituals['summoning'].name + '.', {
+            w: 700,
+            h: 440,
+            sound: 'final-ritual-success' +
+              (cult.infoID == 0 ? '' : '-other')
+          });
 
           msg += "The stars were right. The Elder God was summoned in " +
             game.turns + " turns (" +
@@ -371,13 +380,17 @@ class UI
         {
           alert('<h2>MILITARY VICTORY</h2><div class=fluff>' +
             Static.templates['conquer'] + '</div><br>' +
-            cult.fullName + ' has taken over the world.',
-            { w: 700, h: 420 });
+            cult.fullName + ' has taken over the world.', {
+            w: 700,
+            h: 420,
+            sound: 'victory',
+          });
 
           msg += cult.fullName + " has taken over the world in " +
             game.turns + " turns (" +
-            game.highScores.convertTime(time) + " of real time)." +
-            " The Elder God is pleased.";
+            game.highScores.convertTime(time) + " of real time).";
+          if (cult.infoID == 0)
+            msg += " The Elder God is pleased.";
           msg += "<h2>YOU WIN</h2>";
           h = 330;
           showHighScore = true;
@@ -388,9 +401,11 @@ class UI
           alert('<h2>FINAL RITUAL COMPLETED</h2><div class=fluff>' +
             cult.info.summonFinish + '</div><br>' +
             cult.fullName + " has completed the " +
-            Static.rituals['summoning'].name + '.',
-            { w: 700, h: 440 });
-
+            Static.rituals['summoning'].name + '.', {
+            w: 700,
+            h: 440,
+            sound: 'defeat',
+          });
           msg += "<h2>YOU LOSE</h2>";
         }
 
@@ -398,8 +413,11 @@ class UI
         {
           alert('<h2>MILITARY DEFEAT</h2><div class=fluff>' +
             Static.templates['conquer'] + '</div><br>' +
-            cult.fullName + ' has taken over the world.',
-            { w: 700, h: 420 });
+            cult.fullName + ' has taken over the world.', {
+            w: 700,
+            h: 420,
+            sound: 'defeat',
+          });
 
           msg += cult.fullName + " has taken over the world. You fail.";
           msg += "<h2>YOU LOSE</h2>";
@@ -408,14 +426,17 @@ class UI
 
       else if (state == "wiped")
         {
-          msg += cult.fullName + " was wiped away completely. " +
-            "The Elder God lies dormant beneath the sea, waiting.";
+          sound.play('defeat');
+          msg += cult.fullName + " was wiped away completely.";
+          if (cult.infoID == 0)
+            msg += " The Elder God lies dormant beneath the sea, waiting.";
           msg += "<h2>YOU LOSE</h2>";
           h = 210;
         }
 
       else if (state == "multiplayerFinish")
         {
+          sound.play('defeat');
           msg += "The great game has ended. Humanity will live.";
           msg += "<h2>YOU ALL LOSE</h2>";
           h = 190;

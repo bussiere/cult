@@ -1,16 +1,5 @@
 // music player
 
-extern class SoundManager implements Dynamic
-{
-  static function stop(id: Dynamic): Void;
-  static function play(id: Dynamic, ?p2: Dynamic): Void;
-  static function togglePause(id: Dynamic): Void;
-  static function createSound(p1: Dynamic): Void;
-  static function destroySound(p1: Dynamic): Void;
-  static function stopAll(): Void;
-  static function setVolume(vol: Int): Void;
-}
-
 class Music
 {
   var ui: UI;
@@ -333,15 +322,23 @@ class Music
 
 #if electron
       // local music files
+      var pl = [];
       for (row in playlist)
         {
           row[3] = StringTools.replace(row[3],
             'http://ftp.scene.org/pub/music/groups/kahvicollective/',
+#if demo
+            'data/music/demo/');
+          if (row[1] == 'Gewesen')
+            pl.push(row);
+#else
             'data/music/');
+#end
           row[3] = StringTools.replace(row[3], '.ogg', '.mp3');
-
         }
-//      trace(playlist);
+#if demo
+      playlist = pl;
+#end
 #end
     }
 
@@ -393,7 +390,6 @@ class Music
       play();
     }
 
-
 // increase volume
   public function increaseVolume()
     {
@@ -405,9 +401,8 @@ class Music
         return;
       volume = v;
       ui.config.set('musicVolume', '' + volume);
-      SoundManager.setVolume(volume);
+      SoundManager.setVolume('music', volume);
     }
-
 
 // decrease volume
   public function decreaseVolume()
@@ -420,14 +415,13 @@ class Music
         return;
       volume = v;
       ui.config.set('musicVolume', '' + volume);
-      SoundManager.setVolume(volume);
+      SoundManager.setVolume('music', volume);
     }
-
 
 // start playing
   public function play()
     {
-      SoundManager.stopAll();
+      SoundManager.stop('music');
       if (trackID == -1)
         random();
       else SoundManager.play('music', { onfinish: random });
@@ -438,7 +432,7 @@ class Music
 // stop playing
   public function stop()
     {
-      SoundManager.stopAll();
+      SoundManager.stop('music');
       ui.config.set('music', '0');
     }
 
